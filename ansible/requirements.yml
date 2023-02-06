@@ -1,0 +1,14 @@
+---
+collections:
+  - name: community.digitalocean
+    version: 1.23.0
+    type: galaxy
+  - name: community.postgresql
+    version: 2.3.2
+    type: galaxy
+  - name: community.general
+    version: 6.2.0
+    type: galaxy
+  - name: community.sops
+    version: 1.6.0
+    type: galaxy

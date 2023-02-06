@@ -1,0 +1,31 @@
+- name: Install PostgreSQL 14 and Ansible dependencies
+  ansible.builtin.package:
+    name: [postgresql-14, libpq-dev, python3-psycopg2]
+    state: present
+
+- name: Connection settings for Postgresql
+  template:
+    src: "listen.conf.j2"
+    dest: /etc/postgresql/14/main/conf.d/listen.conf
+    owner: postgres
+    group: postgres
+    mode: 0644
+  notify:
+    - Restart postgres
+
+- name: allow DB connections on private interface
+  community.general.ufw:
+    comment: "Allow connections to PostgreSQL from private interface"
+    interface_in: eth1
+    rule: allow
+    proto: tcp
+    port: 5432
+
+- name: Allow remote connections from private network to Firefly-III DB
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/14/main/pg_hba.conf
+    contype: host
+    databases: firefly-iii
+    users: firefly-iii-user
+    address: "{{ ansible_facts.eth1.ipv4.network }}/{{ ansible_facts.eth1.ipv4.prefix }}"
+    method: "scram-sha-256"

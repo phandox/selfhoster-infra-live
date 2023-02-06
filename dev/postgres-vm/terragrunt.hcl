@@ -35,7 +35,7 @@ inputs = merge(
   {
     instance_count = 1
     instance_size = "s-1vcpu-512mb-10gb"
-    tags = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"]]
+    tags = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"], "psql"]
     vpc = dependency.vpc.outputs.vpc
   }
 )

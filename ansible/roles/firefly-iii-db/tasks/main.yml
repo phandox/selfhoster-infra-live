@@ -1,0 +1,31 @@
+- name: Load SOPS secrets
+  community.sops.load_vars:
+    file: 'vars/main.sops.yml'
+    expressions: ignore
+
+- name: Create DB for Firefly-III
+  community.postgresql.postgresql_db:
+    name: firefly-iii
+    conn_limit: "10"
+  become: yes
+  become_user: postgres
+
+- name: Create user for Firefly-III DB
+  community.postgresql.postgresql_user:
+    name: firefly-iii-user
+    password: "{{ db_password }}"
+    db: firefly-iii
+  environment:
+    PGOPTIONS: "-c password_encryption=scram-sha-256"
+  become: yes
+  become_user: postgres
+
+- name: Grant R/W role to firefly-iii user
+  community.postgresql.postgresql_membership:
+    db: firefly-iii
+    target_role: firefly-iii-user
+    groups: ["pg_read_all_data", "pg_write_all_data"]
+    state: exact
+  become: yes
+  become_user: postgres
+
