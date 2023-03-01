@@ -1,21 +1,22 @@
-generate "backend" {
-  path = "backend.tf"
-  if_exists = "overwrite_terragrunt"
-  contents = <<EOF
-terraform {
-  backend "gcs" {
-    bucket = "tf-states-org-test-luknagy-com"
-    prefix = "do/${path_relative_to_include()}/terraform.tfstate"
-    impersonate_service_account = "terraform-state-holder@booming-primer-369213.iam.gserviceaccount.com"
+remote_state {
+  backend = "gcs"
+  generate = {
+    path      = "backend.tf"
+    if_exists = "overwrite_terragrunt"
   }
-}
-EOF
+  config = {
+    skip_bucket_creation        = true
+    skip_bucket_versioning      = false
+    bucket                      = "ln-gcp-sh-infra-tfstates"
+    prefix                      = "do/${path_relative_to_include()}/terraform.tfstate"
+    impersonate_service_account = "tf-state@ln-gcp-sh-infra.iam.gserviceaccount.com"
+  }
 }
 
 generate "provider" {
-  path = "provider.tf"
+  path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
-  contents = <<EOF
+  contents  = <<EOF
 terraform {
   required_providers {
     digitalocean = {

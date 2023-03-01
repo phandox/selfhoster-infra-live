@@ -1,4 +1,4 @@
 locals {
-  env = "dev"
+  env    = "dev"
   region = "fra1"
 }

@@ -1,0 +1,5 @@
+creation_rules:
+  - path_regexp: .*/dev/.*
+    gcp_kms: projects/ln-gcp-dev-sec-core-0/locations/global/keyRings/dev-global/cryptoKeys/sops
+  - path_regexp: .*/prod/.*
+    gcp_kms: projects/ln-gcp-prod-sec-core-0/locations/global/keyRings/prod-global/cryptoKeys/sops

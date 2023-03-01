@@ -11,7 +11,7 @@ dependency "vpc" {
 
   mock_outputs = {
     vpc = {
-      id = "dummy-id"
+      id       = "dummy-id"
       ip_range = "10.0.10.0/24"
     }
   }
@@ -25,6 +25,7 @@ inputs = merge(
   local.dev_vars.locals,
   {
     cluster_name = "doks-fra1-001"
-    vpc_uuid = dependency.vpc.outputs.vpc.id
+    vpc_uuid     = dependency.vpc.outputs.vpc.id
+    size         = "s-2vcpu-2gb"
   }
 )

@@ -6,7 +6,7 @@ dependency "vpc" {
 
   mock_outputs = {
     vpc = {
-      id = "dummy-id"
+      id       = "dummy-id"
       ip_range = "10.0.10.0/24"
     }
   }
@@ -16,7 +16,7 @@ dependency "common-firewall" {
   config_path = "../common-firewall"
   mock_outputs = {
     fw-tags = {
-      ssh = "dummy-tag"
+      ssh             = "dummy-tag"
       internet-egress = "dummy-tag"
     }
   }
@@ -34,8 +34,8 @@ inputs = merge(
   local.dev_vars.locals,
   {
     instance_count = 1
-    instance_size = "s-1vcpu-512mb-10gb"
-    tags = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"], "psql"]
-    vpc = dependency.vpc.outputs.vpc
+    instance_size  = "s-1vcpu-512mb-10gb"
+    tags           = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"], "psql"]
+    vpc            = dependency.vpc.outputs.vpc
   }
 )
