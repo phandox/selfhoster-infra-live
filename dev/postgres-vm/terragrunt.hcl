@@ -22,6 +22,13 @@ dependency "common-firewall" {
   }
 }
 
+dependency "persistent-volume" {
+  config_path = "../volumes"
+  mock_outputs = {
+    volume_id = "mock-id"
+  }
+}
+
 terraform {
   source = "github.com:phandox/selfhoster/infra-modules//postgres-vm"
 }
@@ -37,5 +44,6 @@ inputs = merge(
     instance_size  = "s-1vcpu-512mb-10gb"
     tags           = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"], "psql"]
     vpc            = dependency.vpc.outputs.vpc
+    volume_id      = dependency.persistent-volume.outputs.volume_id
   }
 )

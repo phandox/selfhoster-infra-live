@@ -1,4 +1,27 @@
-- name: Restart postgres
-  ansible.builtin.service:
+- name: stop postgresql
+  service:
+    name: postgresql
+    state: stopped
+  listen: move data
+
+- name: check if data already migrated
+  stat:
+    path: "/mnt/postgres_data_volume/postgresql/14/main"
+  listen: move data
+  register: st
+
+- name: Move from default to new location
+  ansible.posix.synchronize:
+    src: /var/lib/postgresql
+    dest: /mnt/postgres_data_volume/
+    archive: true
+    checksum: true
+  delegate_to: "{{ inventory_hostname }}"
+  listen: move data
+  when: not st.stat.exists
+
+- name: restart postgresql
+  service:
     name: postgresql
     state: restarted
+  listen: move data

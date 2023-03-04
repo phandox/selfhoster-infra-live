@@ -2,6 +2,13 @@
   ansible.builtin.package:
     name: [postgresql-14, libpq-dev, python3-psycopg2]
     state: present
+- name: Update PGDATA location
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    regexp: '^data_directory = '
+    line: "data_directory = '/mnt/postgres_data_volume/postgresql/14/main'"
+  notify:
+    - move data
 
 - name: Connection settings for Postgresql
   template:
@@ -11,7 +18,7 @@
     group: postgres
     mode: 0644
   notify:
-    - Restart postgres
+    - restart postgresql
 
 - name: allow DB connections on private interface
   community.general.ufw:

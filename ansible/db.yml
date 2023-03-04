@@ -2,9 +2,8 @@
   hosts: psql_fw
   remote_user: root
   tasks:
-    - name: show facts
-      ansible.builtin.debug:
-        var: ansible_facts
+    - import_role:
+        name: volume-mount
     - import_role:
         name: postgresql
     - import_role:
