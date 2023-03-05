@@ -1,0 +1,82 @@
+replicaCount: 1
+
+# -- The proxies that are trusted by the importer
+trustedProxies: "**"
+
+fireflyiii:
+  # -- The URL at which you access Firefly III. Check https://docs.firefly-iii.org/data-importer/install/configure/#configure-fidi to find out if you should set this.
+  vanityUrl: ""
+
+# -- Environment variables for the importer. See docs at: https://github.com/firefly-iii/data-importer/blob/main/.env.example
+config:
+  # -- Set this to the name of a secret to load environment variables from. If defined, values in the secret will override values in config.env
+  existingSecret: ""
+
+  # -- Set environment variables from configMaps or Secrets
+  envValueFrom: {}
+
+  # -- Directly defined environment variables. Use this for non-secret configuration values.
+  env:
+    IGNORE_DUPLICATE_ERRORS: "false"
+    TZ: "Europe/Prague"
+    NORDIGEN_ID_FILE: /app/configurations/nordigen.txt
+    NORDIGEN_KEY_FILE: /app/configurations/nordigen.txt
+
+# -- Configure additional mounts for the pod. Value is a list of VolumeMount specs, see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#volumemount-v1-core
+additionalVolumeMounts: []
+
+# -- Configure additional volumes for the Pod. Value is a list of Volume specs, see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#volume-v1-core
+additionalVolumes: []
+
+image:
+  repository: fireflyiii/data-importer
+  pullPolicy: IfNotPresent
+  tag: "version-v1.0.2"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - chart-example.local
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
