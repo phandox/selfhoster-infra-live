@@ -449,19 +449,13 @@ controller:
         ## Ref: https://kubernetes.io/docs/concepts/services-networking/dual-stack/
         ipFamilies:
             - IPv4
-#        ports:
-#            http: 80
-#            https: 443
-#        targetPorts:
-#            http: http
-#            https: https
-#        type: LoadBalancer
-        type: NodePort
-        nodePorts:
-          http: 32080
-          https: 32443
-          tcp: {}
-          udp: {}
+        ports:
+            http: 80
+            https: 443
+        targetPorts:
+            http: http
+            https: https
+        type: LoadBalancer
 #        nodePorts:
 #            http: ""
 #            https: ""
