@@ -6,6 +6,7 @@ declare -i verbosity=0
 ingress_nginx_version="4.5.2"
 firefly_core_version="1.4.0"
 firefly_importer_version="1.3.1"
+external_dns_version="1.12.1"
 
 [[ -z ${TF_VAR_do_token:-} ]] && (>&2 echo "TF_VAR_do_token not loaded. Load with DO_TOKEN" ; exit 1)
 
@@ -36,6 +37,12 @@ function helm_platform() {
     -n ingress-nginx \
     --version "$ingress_nginx_version" \
     -f ingress-nginx/values.yaml
+  helm secrets upgrade --install external-dns external-dns/external-dns \
+    --create-namespace \
+    -n external-dns \
+    --version "$external_dns_version" \
+    -f external-dns/values.yaml \
+    -f external-dns/secrets.yaml
 }
 
 function helm_workload() {
