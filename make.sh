@@ -7,6 +7,7 @@ ingress_nginx_version="4.5.2"
 firefly_core_version="1.4.0"
 firefly_importer_version="1.3.1"
 external_dns_version="1.12.1"
+cert_manager_version="v1.11.0"
 
 [[ -z ${TF_VAR_do_token:-} ]] && (>&2 echo "TF_VAR_do_token not loaded. Load with DO_TOKEN" ; exit 1)
 
@@ -44,12 +45,24 @@ function helm_platform() {
     -f external-dns/values.yaml \
     -f external-dns/secrets.yaml
 }
+function cert_manager() {
+  doctl kubernetes cluster kubeconfig save doks-fra1-001
+  cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
+  kubectl apply cert-manager/cert-manager.crds.yaml
+  helm upgrade --install cert-manager jetstack/cert-manager \
+    --create-namespace \
+    -n cert-manager \
+    --version "$cert_manager_version" \
+    -f cert-manager/values.yaml
+  kubectl apply cert-manager/cluster-issuer.yaml
+}
 
 function helm_workload() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
   cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
+  kubectl create namespace firefly-iii
+  sops --decrypt cert-manager/stages/dev/firefly-iii-tls.secret.yaml | kubectl -n firefly-iii apply -f -
   helm secrets upgrade --install core firefly-iii/firefly-iii \
-    --create-namespace \
     -n firefly-iii \
     --version "$firefly_core_version" \
     -f firefly-iii/values.yaml \
@@ -71,6 +84,9 @@ case $1 in
   tgrunt-destroy-dev)
     verbose "Running terragrunt run-all destroy target"
     googleauth
+    # fore removing Digital ocean resources, created in K8S cluster
+    helm uninstall -n ingress-nginx ingress-nginx --wait
+    helm uninstall -n external-dns external-dns --wait
     terragrunt run-all destroy --terragrunt-source ~/coding/selfhoster/infra-modules/ --terragrunt-source-update --terragrunt-exclude-dir dev/volumes
     rm "${HOME}/.config/gcloud/application_default_credentials.json"
     ;;
