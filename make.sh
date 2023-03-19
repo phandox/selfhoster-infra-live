@@ -48,20 +48,27 @@ function helm_platform() {
 function cert_manager() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
   cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
-  kubectl apply cert-manager/cert-manager.crds.yaml
+  kubectl apply --server-side -f cert-manager/cert-manager.crds.yaml
   helm upgrade --install cert-manager jetstack/cert-manager \
     --create-namespace \
     -n cert-manager \
     --version "$cert_manager_version" \
     -f cert-manager/values.yaml
-  kubectl apply cert-manager/cluster-issuer.yaml
+  kubectl apply --server-side -f cert-manager/cluster-issuer.yaml
 }
 
 function helm_workload() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
   cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
-  kubectl create namespace firefly-iii
-  sops --decrypt cert-manager/stages/dev/firefly-iii-tls.secret.yaml | kubectl -n firefly-iii apply -f -
+  kubectl apply --server-side -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: firefly-iii
+EOF
+  sops --decrypt cert-manager/stages/dev/firefly-iii-tls.secret.yaml \
+    | yq 'del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"), (.metadata.creationTimestamp, .metadata.resourceVersion, .metadata.uid) |= null' \
+    | kubectl apply --server-side -f -
   helm secrets upgrade --install core firefly-iii/firefly-iii \
     -n firefly-iii \
     --version "$firefly_core_version" \
@@ -101,6 +108,10 @@ case $1 in
   helm-workload)
     verbose "Installing K8S workload Helm charts"
     helm_workload
+    ;;
+  cert-manager)
+    verbose "Installing cert-manager"
+    cert_manager
     ;;
   *)
     echo "Unknown target"
