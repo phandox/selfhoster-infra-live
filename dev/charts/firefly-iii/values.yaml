@@ -109,15 +109,8 @@ service:
 ingress:
   enabled: true
   className: nginx
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-  # kubernetes.io/tls-acme: "true"
-  hosts:
-    - firefly-iii.do.luknagy.com
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  annotations:
+    nginx.ingress.kubernetes.io/whitelist-source-range: 77.87.240.0/21
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
