@@ -32,7 +32,7 @@ function ansible_playbook() {
 
 function helm_platform() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
-  cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
+  cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
     --create-namespace \
     -n ingress-nginx \
@@ -44,10 +44,11 @@ function helm_platform() {
     --version "$external_dns_version" \
     -f external-dns/values.yaml \
     -f external-dns/secrets.yaml
+  cd -
 }
 function cert_manager() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
-  cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
+  cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   kubectl apply --server-side -f cert-manager/cert-manager.crds.yaml
   helm upgrade --install cert-manager jetstack/cert-manager \
     --create-namespace \
@@ -55,11 +56,12 @@ function cert_manager() {
     --version "$cert_manager_version" \
     -f cert-manager/values.yaml
   kubectl apply --server-side -f cert-manager/cluster-issuer.yaml
+  cd -
 }
 
 function helm_workload() {
   doctl kubernetes cluster kubeconfig save doks-fra1-001
-  cd dev/charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
+  cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   kubectl apply --server-side -f - <<EOF
 apiVersion: v1
 kind: Namespace
@@ -75,6 +77,7 @@ EOF
     -f firefly-iii/values.yaml \
     -f firefly-iii/stages/dev/env.yaml \
     -f firefly-iii/stages/dev/secrets.yaml
+  cd -
 }
 
 case $1 in
