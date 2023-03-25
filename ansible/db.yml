@@ -1,9 +1,23 @@
 - name: Prepare DB hosts
-  hosts: psql_fw
+  hosts: "{{ exec_env }}"
   remote_user: root
   tasks:
+    - name: Get volume for environment
+      digital_ocean_volume_info:
+        oauth_token: '{{ lookup("ansible.builtin.env", "TF_VAR_do_token") }}'
+        region_name: fra1
+      register: resp
+
+    - set_fact:
+        volume: "{{ item }}"
+      loop: "{{ resp.data | to_json | from_json | community.general.json_query(q) }}"
+      vars:
+        q: "[?contains(tags, '{{ exec_env }}')]"
+
     - import_role:
         name: volume-mount
+      vars:
+        volume_fslabel: "{{ volume.filesystem_label }}"
     - import_role:
         name: postgresql
     - import_role:

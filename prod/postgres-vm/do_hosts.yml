@@ -10,4 +10,4 @@ compose:
   distro: do_image.distribution | lower
 filters:
   - '"psql" in do_tags'
-  - '"dev" in do_tags'
+  - '"prod" in do_tags'
