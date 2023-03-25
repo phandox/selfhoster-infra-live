@@ -23,9 +23,10 @@ function verbose() {
 }
 
 function ansible_playbook() {
+  local exec_env=$1
   cd ansible || (>&2 echo "Can't change dir to ansible" ; exit 1)
   source .venv/bin/activate
-  ansible-playbook -i ../dev/postgres-vm/do_hosts.yml db.yml
+  ansible-playbook -i "../${exec_env}/postgres-vm/do_hosts.yml" --extra-vars "exec_env=${exec_env}" db.yml
   deactivate
   cd -
 }
@@ -82,27 +83,62 @@ EOF
 
 case $1 in
   tgrunt-plan-dev)
+    cd dev/
     verbose "Running terragrunt run-all plan target"
     googleauth
-    terragrunt run-all plan --terragrunt-source ~/coding/selfhoster/infra-modules/ --terragrunt-source-update
+    terragrunt run-all plan --terragrunt-source ~/coding/selfhoster/ --terragrunt-source-update
+    cd -
     ;;
   tgrunt-apply-dev)
+    cd dev/
     verbose "Running terragrunt run-all apply target"
     googleauth
-    terragrunt run-all apply --terragrunt-source ~/coding/selfhoster/infra-modules/ --terragrunt-source-update
+    terragrunt run-all apply --terragrunt-source ~/coding/selfhoster/ --terragrunt-source-update
+    cd -
     ;;
   tgrunt-destroy-dev)
+    cd dev/
     verbose "Running terragrunt run-all destroy target"
     googleauth
     # fore removing Digital ocean resources, created in K8S cluster
-    helm uninstall -n ingress-nginx ingress-nginx --wait
-    helm uninstall -n external-dns external-dns --wait
-    terragrunt run-all destroy --terragrunt-source ~/coding/selfhoster/infra-modules/ --terragrunt-source-update --terragrunt-exclude-dir dev/volumes
+#    helm uninstall -n ingress-nginx ingress-nginx --wait
+#    helm uninstall -n external-dns external-dns --wait
+    terragrunt run-all destroy --terragrunt-source ~/coding/selfhoster --terragrunt-source-update --terragrunt-exclude-dir volumes/
     rm "${HOME}/.config/gcloud/application_default_credentials.json"
+    cd -
     ;;
-  ansible-run)
+  tgrunt-plan-prod)
+    cd prod/
+    verbose "Running terragrunt run-all plan target - prod"
+    googleauth
+    terragrunt run-all plan
+    cd -
+    ;;
+  tgrunt-apply-prod)
+    cd prod/
+    verbose "Running terragrunt run-all apply target - prod"
+    googleauth
+    terragrunt run-all apply
+    cd -
+    ;;
+  tgrunt-destroy-prod)
+    cd prod/
+    verbose "Running terragrunt run-all destroy target"
+    googleauth
+    # fore removing Digital ocean resources, created in K8S cluster
+#    helm uninstall -n ingress-nginx ingress-nginx --wait
+#    helm uninstall -n external-dns external-dns --wait
+    terragrunt run-all destroy --terragrunt-exclude-dir volumes/
+    rm "${HOME}/.config/gcloud/application_default_credentials.json"
+    cd -
+    ;;
+  ansible-run-dev)
     verbose "Running Ansible target"
-    ansible_playbook
+    ansible_playbook dev
+    ;;
+  ansible-run-prod)
+    verbose "Running Ansible target"
+    ansible_playbook prod
     ;;
   helm-platform)
     verbose "Installing K8S platform Helm charts"
