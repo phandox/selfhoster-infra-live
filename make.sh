@@ -32,7 +32,8 @@ function ansible_playbook() {
 }
 
 function helm_platform() {
-  doctl kubernetes cluster kubeconfig save doks-fra1-001
+  local cluster=$1
+  doctl kubernetes cluster kubeconfig save "$cluster"
   cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
     --create-namespace \
@@ -48,12 +49,14 @@ function helm_platform() {
   cd -
 }
 function cert_manager() {
-  doctl kubernetes cluster kubeconfig save doks-fra1-001
+  local cluster=$1
+  doctl kubernetes cluster kubeconfig save "$cluster"
   cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   kubectl apply --server-side -f cert-manager/cert-manager.crds.yaml
   helm upgrade --install cert-manager jetstack/cert-manager \
     --create-namespace \
     -n cert-manager \
+    --set 'extraArgs={--acme-http01-solver-nameservers=8.8.8.8:53\,1.1.1.1:53}' \
     --version "$cert_manager_version" \
     -f cert-manager/values.yaml
   kubectl apply --server-side -f cert-manager/cluster-issuer.yaml
@@ -61,7 +64,9 @@ function cert_manager() {
 }
 
 function helm_workload() {
-  doctl kubernetes cluster kubeconfig save doks-fra1-001
+  local cluster=$1
+  local exec_env=$2
+  doctl kubernetes cluster kubeconfig save "$cluster"
   cd charts || (>&2 echo "Can't change dir to dev/charts" ; exit 1)
   kubectl apply --server-side -f - <<EOF
 apiVersion: v1
@@ -69,15 +74,17 @@ kind: Namespace
 metadata:
   name: firefly-iii
 EOF
-  sops --decrypt cert-manager/stages/dev/firefly-iii-tls.secret.yaml \
-    | yq 'del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"), (.metadata.creationTimestamp, .metadata.resourceVersion, .metadata.uid) |= null' \
-    | kubectl apply --server-side -f -
+  if [[ -f "cert-manager/stages/${exec_env}/firefly-iii-tls.secret.yaml" ]]; then
+    sops --decrypt "cert-manager/stages/${exec_env}/firefly-iii-tls.secret.yaml" \
+      | yq 'del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"), (.metadata.creationTimestamp, .metadata.resourceVersion, .metadata.uid) |= null' \
+      | kubectl apply --server-side -f -
+  fi
   helm secrets upgrade --install core firefly-iii/firefly-iii \
     -n firefly-iii \
     --version "$firefly_core_version" \
     -f firefly-iii/values.yaml \
-    -f firefly-iii/stages/dev/env.yaml \
-    -f firefly-iii/stages/dev/secrets.yaml
+    -f "firefly-iii/stages/${exec_env}/env.yaml" \
+    -f "firefly-iii/stages/${exec_env}/secrets.yaml"
   cd -
 }
 
@@ -100,9 +107,9 @@ case $1 in
     cd dev/
     verbose "Running terragrunt run-all destroy target"
     googleauth
-    # fore removing Digital ocean resources, created in K8S cluster
-#    helm uninstall -n ingress-nginx ingress-nginx --wait
-#    helm uninstall -n external-dns external-dns --wait
+    # force removing Digital ocean resources, created in K8S cluster
+    helm uninstall -n ingress-nginx ingress-nginx --wait
+    helm uninstall -n external-dns external-dns --wait
     terragrunt run-all destroy --terragrunt-source ~/coding/selfhoster --terragrunt-source-update --terragrunt-exclude-dir volumes/
     rm "${HOME}/.config/gcloud/application_default_credentials.json"
     cd -
@@ -125,9 +132,9 @@ case $1 in
     cd prod/
     verbose "Running terragrunt run-all destroy target"
     googleauth
-    # fore removing Digital ocean resources, created in K8S cluster
-#    helm uninstall -n ingress-nginx ingress-nginx --wait
-#    helm uninstall -n external-dns external-dns --wait
+    # force removing Digital ocean resources, created in K8S cluster
+    helm uninstall -n ingress-nginx ingress-nginx --wait
+    helm uninstall -n external-dns external-dns --wait
     terragrunt run-all destroy --terragrunt-exclude-dir volumes/
     rm "${HOME}/.config/gcloud/application_default_credentials.json"
     cd -
@@ -142,15 +149,27 @@ case $1 in
     ;;
   helm-platform)
     verbose "Installing K8S platform Helm charts"
-    helm_platform
+    helm_platform doks-fra1-001 dev
     ;;
   helm-workload)
     verbose "Installing K8S workload Helm charts"
-    helm_workload
+    helm_workload doks-fra1-001 dev
     ;;
   cert-manager)
     verbose "Installing cert-manager"
-    cert_manager
+    cert_manager doks-fra1-001 dev
+    ;;
+  helm-platform-prod)
+    verbose "Installing K8S platform Helm charts"
+    helm_platform doks-fra1-prod-001 prod
+    ;;
+  helm-workload-prod)
+    verbose "Installing K8S workload Helm charts"
+    helm_workload doks-fra1-prod-001 prod
+    ;;
+  cert-manager-prod)
+    verbose "Installing cert-manager"
+    cert_manager doks-fra1-prod-001 prod
     ;;
   *)
     echo "Unknown target"
