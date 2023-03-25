@@ -1,3 +1,6 @@
+locals {
+  env = read_terragrunt_config(find_in_parent_folders("env.hcl"))
+}
 remote_state {
   backend = "gcs"
   generate = {
@@ -5,11 +8,11 @@ remote_state {
     if_exists = "overwrite_terragrunt"
   }
   config = {
-    skip_bucket_creation        = true
-    skip_bucket_versioning      = false
-    bucket                      = "ln-gcp-sh-infra-tfstates"
+    bucket                      = local.env.locals.bucket
+    project                     = local.env.locals.project
+    impersonate_service_account = local.env.locals.tf_sa
+    location                    = "europe-west3"
     prefix                      = "do/${path_relative_to_include()}/terraform.tfstate"
-    impersonate_service_account = "tf-state@ln-gcp-sh-infra.iam.gserviceaccount.com"
   }
 }
 

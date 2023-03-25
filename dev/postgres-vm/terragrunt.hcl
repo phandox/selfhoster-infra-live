@@ -1,5 +1,5 @@
 locals {
-  dev_vars = read_terragrunt_config(find_in_parent_folders("dev.hcl"))
+  common_vars = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals.common_vars
 }
 dependency "vpc" {
   config_path = "../vpc"
@@ -30,7 +30,7 @@ dependency "persistent-volume" {
 }
 
 terraform {
-  source = "github.com:phandox/selfhoster/infra-modules//postgres-vm"
+  source = "github.com/phandox/selfhoster//infra-modules/postgres-vm"
 }
 
 include "root" {
@@ -38,7 +38,7 @@ include "root" {
 }
 
 inputs = merge(
-  local.dev_vars.locals,
+  local.common_vars,
   {
     instance_count = 1
     instance_size  = "s-1vcpu-512mb-10gb"

@@ -1,5 +1,5 @@
 terraform {
-  source = "github.com:phandox/selfhoster/infra-modules//doks"
+  source = "github.com/phandox/selfhoster//infra-modules/doks"
 }
 
 locals {

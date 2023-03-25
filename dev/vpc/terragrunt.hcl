@@ -1,5 +1,5 @@
 terraform {
-  source = "github.com:phandox/selfhoster/infra-modules//vpc"
+  source = "github.com/phandox/selfhoster//infra-modules/vpc"
 }
 
 include "root" {
