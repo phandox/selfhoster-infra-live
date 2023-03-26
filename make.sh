@@ -85,6 +85,12 @@ EOF
     -f firefly-iii/values.yaml \
     -f "firefly-iii/stages/${exec_env}/env.yaml" \
     -f "firefly-iii/stages/${exec_env}/secrets.yaml"
+  helm secrets upgrade --install importer firefly-iii/importer\
+    -n firefly-iii \
+    --version "$firefly_importer_version" \
+    -f firefly-iii-importer/values.yaml \
+    -f "firefly-iii-importer/stages/${exec_env}/env.yaml" \
+    -f "firefly-iii-importer/stages/${exec_env}/secrets.yaml"
   cd -
 }
 
