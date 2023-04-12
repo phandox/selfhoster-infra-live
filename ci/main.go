@@ -9,6 +9,11 @@ import (
 
 const tgruntVersion = "v0.45.2"
 
+func googleEnv(c *dagger.Container) *dagger.Container {
+	return c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")).
+		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", os.Getenv("GOOGLE_GHA_CREDS_PATH"))
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -28,8 +33,9 @@ func main() {
 		From("hashicorp/terraform:1.3.9").
 		WithFile("/bin/terragrunt", tgruntBinary, dagger.ContainerWithFileOpts{Permissions: 0755}).
 		WithEntrypoint([]string{"/bin/terragrunt"})
-
-	out, err := terragrunt.WithMountedDirectory("/infra", code).WithWorkdir("/infra/prod").
+	terragrunt = googleEnv(terragrunt)
+	out, err := terragrunt.WithMountedDirectory("/infra", code).
+		WithWorkdir("/infra/prod").
 		WithExec([]string{"run-all", "plan"}).Stdout(ctx)
 	if err != nil {
 		panic(err)
