@@ -5,13 +5,20 @@ import (
 	"dagger.io/dagger"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 const tgruntVersion = "v0.45.2"
 
-func googleEnv(c *dagger.Container) *dagger.Container {
-	return c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")).
-		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", os.Getenv("GOOGLE_GHA_CREDS_PATH"))
+func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagger.Container, error) {
+	hostCredPath, err := h.EnvVariable("GOOGLE_APPLICATION_CREDENTIALS").Value(ctx)
+	if err != nil {
+		return nil, err
+	}
+	containerCredPath := "/" + filepath.Base(hostCredPath)
+	return c.WithMountedFile(containerCredPath, h.Directory(".").File(hostCredPath)).
+		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", containerCredPath).
+		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", containerCredPath), nil
 }
 
 func main() {
@@ -33,7 +40,10 @@ func main() {
 		From("hashicorp/terraform:1.3.9").
 		WithFile("/bin/terragrunt", tgruntBinary, dagger.ContainerWithFileOpts{Permissions: 0755}).
 		WithEntrypoint([]string{"/bin/terragrunt"})
-	terragrunt = googleEnv(terragrunt)
+	terragrunt, err = googleEnv(ctx, terragrunt, client.Host())
+	if err != nil {
+		panic(err)
+	}
 	out, err := terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/prod").
 		WithExec([]string{"run-all", "plan"}).Stdout(ctx)
