@@ -17,7 +17,7 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	}
 	//credDir := filepath.Dir(hostCredPath)
 	credFile := filepath.Base(hostCredPath)
-	fmt.Println(c.WithExec([]string{"pwd"}).Stdout(ctx))
+	fmt.Println(c.WithEntrypoint([]string{"/bin/sh"}).WithExec([]string{"pwd"}).Stdout(ctx))
 	return c.WithMountedFile(credFile, h.Directory(".").File(credFile)).
 		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", hostCredPath).
 		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", hostCredPath), nil
