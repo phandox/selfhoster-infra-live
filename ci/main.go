@@ -15,11 +15,12 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	if err != nil {
 		return nil, err
 	}
-	credDir := filepath.Dir(hostCredPath)
+	//credDir := filepath.Dir(hostCredPath)
 	credFile := filepath.Base(hostCredPath)
-	return c.WithMountedFile(credFile, h.Directory(credDir).File(credFile)).
-		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", filepath.Join(credDir, credFile)).
-		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", filepath.Join(credDir, credFile)), nil
+	fmt.Println(c.WithExec([]string{"pwd"}).Stdout(ctx))
+	return c.WithMountedFile(credFile, h.Directory(".").File(credFile)).
+		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", hostCredPath).
+		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", hostCredPath), nil
 }
 
 func main() {
