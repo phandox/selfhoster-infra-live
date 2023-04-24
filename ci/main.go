@@ -47,7 +47,7 @@ func main() {
 	}
 	out, err := terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/prod").
-		WithExec([]string{"run-all", "plan"}).Stdout(ctx)
+		WithExec([]string{"run-all", "init"}).Stdout(ctx)
 	if err != nil {
 		panic(err)
 	}
