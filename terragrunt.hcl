@@ -10,7 +10,7 @@ remote_state {
   config = {
     bucket                      = local.env.locals.bucket
     project                     = local.env.locals.project
-#    impersonate_service_account = local.env.locals.tf_sa
+    impersonate_service_account = local.env.locals.tf_sa
     location                    = "europe-west3"
     prefix                      = "do/${path_relative_to_include()}/terraform.tfstate"
   }
