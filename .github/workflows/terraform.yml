@@ -1,7 +1,11 @@
 name: 'Spin up infrastructure via Terragrunt'
 on:
-  - workflow_dispatch
-  - push
+  workflow_dispatch:
+    inputs:
+      terragruntAction:
+        description: 'Action to take when invoking Terragrunt'
+        required: true
+        default: 'apply'
 jobs:
   terragrunt-plan:
     permissions:
@@ -20,4 +24,4 @@ jobs:
           service_account: 'tf-state@ln-gcp-sh-infra-prod.iam.gserviceaccount.com'
           access_token_lifetime: 600s
       - name: Run Dagger.io pipeline
-        run: go run ci/main.go
+        run: go run ci/main.go "${{ github.event.inputs.terragruntAction }}"

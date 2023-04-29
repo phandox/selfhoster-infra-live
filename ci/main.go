@@ -18,10 +18,7 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	if err != nil {
 		return nil, err
 	}
-	//credDir := filepath.Dir(hostCredPath)
 	credFile := filepath.Base(hostCredPath)
-	//debug, _ := h.Directory(".").File(credFile).Contents(ctx)
-	//fmt.Fprintf(os.Stderr, debug)
 	return c.WithMountedFile("/"+credFile, h.Directory(".").File(credFile)).
 		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
 		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", "/"+credFile), nil
@@ -44,6 +41,8 @@ func sopsDecrypt(cryptText string) (secrets, error) {
 }
 
 func main() {
+	action := os.Args[1]
+
 	ctx := context.Background()
 
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr))
@@ -76,13 +75,24 @@ func main() {
 		panic(err)
 	}
 
-	out, err := terragrunt.WithMountedDirectory("/infra", code).
+	tgruntExec := terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/prod").
-		WithEnvVariable("TF_VAR_do_token", s.DoToken).
-		WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).
-		WithExec([]string{"run-all", "plan", "--terragrunt-exclude-dir", "volumes/", "-destroy"}).Stdout(ctx)
-	if err != nil {
-		panic(err)
+		WithEnvVariable("TF_VAR_do_token", s.DoToken)
+
+	switch action {
+	case "apply":
+		apply, err := tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(apply)
+	case "destroy":
+		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(destroy)
+	default:
+		panic("Unknown action. 'apply' and 'destroy' are supported")
 	}
-	fmt.Println(out)
 }
