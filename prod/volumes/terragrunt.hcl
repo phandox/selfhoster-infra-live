@@ -3,7 +3,7 @@ locals {
 }
 
 terraform {
-  source = "github.com/phandox/selfhoster//infra-modules/volumes?ref=v1.2.0"
+  source = "github.com/phandox/selfhoster//infra-modules/volumes?ref=v1.2.1"
 }
 
 include "root" {
