@@ -1,17 +1,27 @@
 name: 'Spin up infrastructure via Terragrunt'
 on:
-  - workflow_dispatch
+  workflow_dispatch:
+    inputs:
+      terragruntAction:
+        description: 'Action to take when invoking Terragrunt'
+        required: true
+        default: 'apply'
 jobs:
   terragrunt-plan:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: 1.20
-      - uses: actions/checkout@v3
-      - uses: google-github-actions/auth@v1
+          go-version-file: "go.mod"
+      - uses: 'google-github-actions/auth@v1'
+        id: 'auth'
         with:
-          workload_identity_provider: 'projects/820161525709/locations/global/workloadIdentityPools/selfhoster-gh/providers/selfhoster-gh-prvdr'
+          workload_identity_provider: 'projects/820161525709/locations/global/workloadIdentityPools/selfhoster-gh-v2/providers/selfhoster-gh-prvdr-v2'
           service_account: 'tf-state@ln-gcp-sh-infra-prod.iam.gserviceaccount.com'
+          access_token_lifetime: 600s
       - name: Run Dagger.io pipeline
-        run: go run ci/main.go
+        run: go run ci/main.go "${{ github.event.inputs.terragruntAction }}"

@@ -3,11 +3,15 @@ locals {
 }
 
 terraform {
-  source = "github.com/phandox/selfhoster//infra-modules/volumes?ref=v1.2.0"
+  source = "github.com/phandox/selfhoster//infra-modules/volumes?ref=v1.2.1"
 }
 
 include "root" {
   path = find_in_parent_folders()
+}
+
+include "state" {
+  path = find_in_parent_folders("state.hcl")
 }
 
 inputs = merge(
