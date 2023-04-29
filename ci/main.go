@@ -79,7 +79,8 @@ func main() {
 	out, err := terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/prod").
 		WithEnvVariable("TF_VAR_do_token", s.DoToken).
-		WithExec([]string{"run-all", "plan"}).Stdout(ctx)
+		WithExec([]string{"run-all", "apply"}).
+		WithExec([]string{"run-all", "plan", "--terragrunt-exclude-dir", "volumes/", "-destroy"}).Stdout(ctx)
 	if err != nil {
 		panic(err)
 	}
