@@ -4,6 +4,8 @@ import (
 	"context"
 	"dagger.io/dagger"
 	"fmt"
+	"go.mozilla.org/sops/v3/decrypt"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 )
@@ -22,6 +24,10 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	return c.WithMountedFile("/"+credFile, h.Directory(".").File(credFile)).
 		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
 		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", "/"+credFile), nil
+}
+
+type secrets struct {
+	DoToken string `yaml:"do_token"`
 }
 
 func main() {
@@ -47,9 +53,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	d, err := decrypt.File("prod/secrets.yaml", "yaml")
+	if err != nil {
+		panic(err)
+	}
+	s := secrets{}
+	if err = yaml.Unmarshal(d, &s); err != nil {
+		panic(err)
+	}
+
 	out, err := terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/prod").
-		WithExec([]string{"run-all", "init"}).Stdout(ctx)
+		WithEnvVariable("TF_VAR_do_token", s.DoToken).
+		WithExec([]string{"run-all", "plan"}).Stdout(ctx)
 	if err != nil {
 		panic(err)
 	}
