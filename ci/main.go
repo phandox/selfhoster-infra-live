@@ -4,6 +4,7 @@ import (
 	"context"
 	"dagger.io/dagger"
 	"fmt"
+	"github.com/pkg/errors"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -33,11 +34,11 @@ type secrets struct {
 func sopsDecrypt(cryptText string) (secrets, error) {
 	clearText, err := decrypt.Data([]byte(cryptText), "yaml")
 	if err != nil {
-		return secrets{}, err
+		return secrets{}, errors.Wrap(err, "problem decrypting SOPS data")
 	}
 	s := secrets{}
 	if err = yaml.Unmarshal(clearText, &s); err != nil {
-		return secrets{}, err
+		return secrets{}, errors.Wrap(err, "problem unmarshalling data")
 	}
 	return s, nil
 }
