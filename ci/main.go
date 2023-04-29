@@ -30,6 +30,18 @@ type secrets struct {
 	DoToken string `yaml:"do_token"`
 }
 
+func sopsDecrypt(cryptText string) (secrets, error) {
+	clearText, err := decrypt.Data([]byte(cryptText), "yaml")
+	if err != nil {
+		return secrets{}, err
+	}
+	s := secrets{}
+	if err = yaml.Unmarshal(clearText, &s); err != nil {
+		return secrets{}, err
+	}
+	return s, nil
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -44,6 +56,15 @@ func main() {
 	tgruntBinary := client.HTTP(tgruntRelease)
 
 	code := client.Host().Directory(".")
+	cryptFile, err := client.Host().Directory(".").File("prod/secrets.yaml").Contents(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	s, err := sopsDecrypt(cryptFile)
+	if err != nil {
+		panic(err)
+	}
 
 	terragrunt := client.Container().
 		From("hashicorp/terraform:1.3.9").
@@ -51,15 +72,6 @@ func main() {
 		WithEntrypoint([]string{"/bin/terragrunt"})
 	terragrunt, err = googleEnv(ctx, terragrunt, client.Host())
 	if err != nil {
-		panic(err)
-	}
-
-	d, err := decrypt.File("../prod/secrets.yaml", "yaml")
-	if err != nil {
-		panic(err)
-	}
-	s := secrets{}
-	if err = yaml.Unmarshal(d, &s); err != nil {
 		panic(err)
 	}
 
