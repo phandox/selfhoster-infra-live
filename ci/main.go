@@ -54,7 +54,7 @@ func main() {
 		panic(err)
 	}
 
-	d, err := decrypt.File("prod/secrets.yaml", "yaml")
+	d, err := decrypt.File("../prod/secrets.yaml", "yaml")
 	if err != nil {
 		panic(err)
 	}
