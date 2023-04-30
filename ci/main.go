@@ -18,10 +18,16 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	if err != nil {
 		return nil, err
 	}
+	if hostCredPath == "" {
+		hostHome, err := h.EnvVariable("HOME").Value(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "Couldn't fetch Google Cloud credentials")
+		}
+		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
+	}
 	credFile := filepath.Base(hostCredPath)
-	return c.WithMountedFile("/"+credFile, h.Directory(".").File(credFile)).
-		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
-		WithEnvVariable("GOOGLE_GHA_CREDS_PATH", "/"+credFile), nil
+	return c.WithMountedFile("/"+credFile, h.Directory(filepath.Dir(hostCredPath)).File(credFile)).
+		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile), nil
 }
 
 type secrets struct {
@@ -56,7 +62,7 @@ func main() {
 	tgruntBinary := client.HTTP(tgruntRelease)
 
 	code := client.Host().Directory(".")
-	cryptFile, err := client.Host().Directory(".").File("prod/secrets.yaml").Contents(ctx)
+	cryptFile, err := code.File("prod/secrets.yaml").Contents(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -80,6 +86,12 @@ func main() {
 		WithEnvVariable("TF_VAR_do_token", s.DoToken)
 
 	switch action {
+	case "plan":
+		plan, err := tgruntExec.WithExec([]string{"run-all", "plan", "--terragrunt-non-interactive"}).Stdout(ctx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(plan)
 	case "apply":
 		apply, err := tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
 		if err != nil {
@@ -93,6 +105,6 @@ func main() {
 		}
 		fmt.Println(destroy)
 	default:
-		panic("Unknown action. 'apply' and 'destroy' are supported")
+		panic("Unknown action. 'plan', 'apply' and 'destroy' are supported")
 	}
 }
