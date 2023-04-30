@@ -24,6 +24,9 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 			return nil, errors.Wrap(err, "Couldn't fetch Google Cloud credentials")
 		}
 		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
+		credFile := filepath.Base(hostCredPath)
+		return c.WithEnvVariable("HOME", "/app").WithMountedFile("/app/.config/gcloud/application_default_credentials.json",
+			h.Directory(filepath.Dir(hostCredPath)).File(credFile)), nil
 	}
 	credFile := filepath.Base(hostCredPath)
 	return c.WithMountedFile("/"+credFile, h.Directory(filepath.Dir(hostCredPath)).File(credFile)).
