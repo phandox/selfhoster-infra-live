@@ -21,9 +21,7 @@ jobs:
         id: 'auth'
         with:
           workload_identity_provider: 'projects/820161525709/locations/global/workloadIdentityPools/selfhoster-gh-v2/providers/selfhoster-gh-prvdr-v2'
-          service_account: 'selfhoster-infra-live-cicd@ln-gcp-wi-sec-0.iam.gserviceaccount.com'
-          delegates:
-            'tf-state@ln-gcp-sh-infra-prod.iam.gserviceaccount.com'
+          service_account: 'tf-state@ln-gcp-sh-infra-prod.iam.gserviceaccount.com''
           access_token_lifetime: 600s
       - name: Run Dagger.io pipeline
         run: go run ci/main.go "${{ github.event.inputs.terragruntAction }}"

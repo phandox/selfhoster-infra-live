@@ -38,13 +38,6 @@ type secrets struct {
 }
 
 func sopsDecrypt(cryptText string) (secrets, error) {
-	fmt.Println("GOOGLE_APPLICATION_CREDENTIALS: ", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	cred, err := os.Stat(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	os.Setenv("GOOGLE_CREDENTIALS", os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	if err != nil {
-		return secrets{}, err
-	}
-	fmt.Println(cred)
 	clearText, err := decrypt.Data([]byte(cryptText), "yaml")
 	if err != nil {
 		return secrets{}, fmt.Errorf("problem decrypting SOPS data: %w", err)
