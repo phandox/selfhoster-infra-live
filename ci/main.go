@@ -72,15 +72,15 @@ func main() {
 	tgruntBinary := client.HTTP(tgruntRelease)
 
 	code := client.Host().Directory(".")
-	cryptFile, err := code.File("prod/secrets.yaml").Contents(ctx)
-	if err != nil {
-		panic(err)
-	}
+	//cryptFile, err := code.File("prod/secrets.yaml").Contents(ctx)
+	//if err != nil {
+	//	panic(err)
+	//}
 
-	s, err := sopsDecrypt(cryptFile)
-	if err != nil {
-		panic(err)
-	}
+	//s, err := sopsDecrypt(cryptFile)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	terragrunt := client.Container().
 		From("hashicorp/terraform:1.3.9").
@@ -92,8 +92,8 @@ func main() {
 	}
 
 	tgruntExec := terragrunt.WithMountedDirectory("/infra", code).
-		WithWorkdir("/infra/prod").
-		WithEnvVariable("TF_VAR_do_token", s.DoToken)
+		WithWorkdir("/infra/prod")
+	//WithEnvVariable("TF_VAR_do_token", s.DoToken)
 
 	switch action {
 	case "plan":
