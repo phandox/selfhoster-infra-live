@@ -1,6 +1,5 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("env.hcl"))
-  secret_vars = yamldecode(sops_decrypt_file(find_in_parent_folders("secrets.yaml")))
 }
 
 generate "provider" {
@@ -21,7 +20,7 @@ variable do_token {
 }
 
 provider "digitalocean" {
-  token = local.secret_vars.do_token
+  token = var.do_token
 }
 
 EOF

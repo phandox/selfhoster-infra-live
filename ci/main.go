@@ -27,7 +27,8 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	}
 	credFile := filepath.Base(hostCredPath)
 	return c.WithMountedFile("/"+credFile, h.Directory(filepath.Dir(hostCredPath)).File(credFile)).
-		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile), nil
+		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
+		WithEnvVariable("GOOGLE_CREDENTIALS", "/"+credFile), nil
 }
 
 func main() {

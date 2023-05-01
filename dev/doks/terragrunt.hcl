@@ -3,7 +3,7 @@ terraform {
 }
 
 locals {
-  dev_vars = read_terragrunt_config(find_in_parent_folders("dev.hcl"))
+  common_vars = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals.common_vars
 }
 
 dependency "vpc" {
@@ -26,7 +26,7 @@ include "state" {
 }
 
 inputs = merge(
-  local.dev_vars.locals,
+  local.common_vars,
   {
     cluster_name = "doks-fra1-001"
     vpc_uuid     = dependency.vpc.outputs.vpc.id

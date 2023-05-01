@@ -1,5 +1,5 @@
 locals {
-  dev_vars = read_terragrunt_config(find_in_parent_folders("dev.hcl"))
+  common_vars = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals.common_vars
 }
 
 terraform {
@@ -15,7 +15,7 @@ include "state" {
 }
 
 inputs = merge(
-  local.dev_vars.locals,
+  local.common_vars,
   {
     name     = "postgres-data-volume"
     size     = 1
