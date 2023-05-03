@@ -7,7 +7,7 @@ include "root" {
 }
 
 locals {
-  dev_vars = read_terragrunt_config(find_in_parent_folders("dev.hcl"))
+  common_vars = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals.common_vars
 }
 
 include "state" {
@@ -16,7 +16,7 @@ include "state" {
 
 
 inputs = merge(
-  local.dev_vars.locals,
+  local.common_vars,
   {
     ip_range = "10.0.100.0/24"
   }

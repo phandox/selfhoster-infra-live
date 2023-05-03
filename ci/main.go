@@ -4,7 +4,6 @@ import (
 	"context"
 	"dagger.io/dagger"
 	"fmt"
-	"github.com/pkg/errors"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -21,7 +20,7 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	if hostCredPath == "" {
 		hostHome, err := h.EnvVariable("HOME").Value(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "Couldn't fetch Google Cloud credentials")
+			return nil, fmt.Errorf("couldn't fetch Google Cloud credentials: %w", err)
 		}
 		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
 		credFile := filepath.Base(hostCredPath)
@@ -30,7 +29,8 @@ func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagge
 	}
 	credFile := filepath.Base(hostCredPath)
 	return c.WithMountedFile("/"+credFile, h.Directory(filepath.Dir(hostCredPath)).File(credFile)).
-		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile), nil
+		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
+		WithEnvVariable("GOOGLE_CREDENTIALS", "/"+credFile), nil
 }
 
 type secrets struct {
@@ -40,11 +40,11 @@ type secrets struct {
 func sopsDecrypt(cryptText string) (secrets, error) {
 	clearText, err := decrypt.Data([]byte(cryptText), "yaml")
 	if err != nil {
-		return secrets{}, errors.Wrap(err, "problem decrypting SOPS data")
+		return secrets{}, fmt.Errorf("problem decrypting SOPS data: %w", err)
 	}
 	s := secrets{}
 	if err = yaml.Unmarshal(clearText, &s); err != nil {
-		return secrets{}, errors.Wrap(err, "problem unmarshalling data")
+		return secrets{}, fmt.Errorf("problem unmarshalling data: %w", err)
 	}
 	return s, nil
 }
@@ -65,7 +65,7 @@ func main() {
 	tgruntBinary := client.HTTP(tgruntRelease)
 
 	code := client.Host().Directory(".")
-	cryptFile, err := code.File("prod/secrets.yaml").Contents(ctx)
+	cryptFile, err := code.File("secrets.yaml").Contents(ctx)
 	if err != nil {
 		panic(err)
 	}

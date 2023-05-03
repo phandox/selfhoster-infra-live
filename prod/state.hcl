@@ -27,7 +27,6 @@ generate "backend" {
 terraform {
   backend "gcs" {
     bucket  = "ln-gcp-sh-infra-prod-tfstates"
-    impersonate_service_account = "tf-state@ln-gcp-sh-infra-prod.iam.gserviceaccount.com"
     prefix = "do/${path_relative_to_include()}/terraform.tfstate"
   }
 }
