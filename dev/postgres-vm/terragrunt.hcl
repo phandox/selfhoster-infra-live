@@ -49,5 +49,6 @@ inputs = merge(
     tags           = [dependency.common-firewall.outputs.fw-tags["ssh"], dependency.common-firewall.outputs.fw-tags["internet-egress"], "psql"]
     vpc            = dependency.vpc.outputs.vpc
     volume_id      = dependency.persistent-volume.outputs.volume_id
+    ssh_keys       = ["37082527", "38338438"]
   }
 )

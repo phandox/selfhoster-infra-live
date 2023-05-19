@@ -8,6 +8,7 @@ firefly_core_version="1.4.0"
 firefly_importer_version="1.3.1"
 external_dns_version="1.12.1"
 cert_manager_version="v1.11.0"
+grafana_agent_operator="v0.2.14"
 
 [[ -z ${TF_VAR_do_token:-} ]] && (>&2 echo "TF_VAR_do_token not loaded. Load with DO_TOKEN" ; exit 1)
 
@@ -46,6 +47,7 @@ function helm_platform() {
     --version "$external_dns_version" \
     -f external-dns/values.yaml \
     -f external-dns/secrets.yaml
+  grafana_agent_operator
   cd -
 }
 function cert_manager() {
@@ -61,6 +63,15 @@ function cert_manager() {
     -f cert-manager/values.yaml
   kubectl apply --server-side -f cert-manager/cluster-issuer.yaml
   cd -
+}
+
+function grafana_agent_operator() {
+  kubectl apply --server-side -f grafana-agent-operator/crds/
+  helm upgrade --install gao grafana/grafana-agent-operator \
+    --create-namespace \
+    -n grafana-agent-operator \
+    --version "$grafana_agent_operator" \
+    -f grafana-agent-operator/values.yaml
 }
 
 function helm_workload() {
