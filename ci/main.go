@@ -8,37 +8,57 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const tgruntVersion = "v0.45.2"
 
-// TODO decouple mounting based on local / CI env
-// TODO let caller mount with correct permissions
-//func mountGoogleEnv(credFile string) (string, *dagger.File) {
-//	return "/" + credFile, h.Direc
-//
-//}
+func adcPath(homeDir string) string {
+	return filepath.Join(homeDir, ".config/gcloud/application_default_credentials.json")
+}
 
-func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagger.File, error) {
+func userHome(ctx context.Context, c *dagger.Container) (string, error) {
+	usr, err := c.WithEntrypoint([]string{"/bin/sh", "-c"}).WithExec([]string{"id -un"}).Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	usr = strings.TrimSpace(usr)
+	home, err := c.WithEntrypoint([]string{"/bin/sh", "-c"}).WithExec([]string{fmt.Sprintf(`getent passwd %s | cut -d':' -f 6`, usr)}).Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	c.Export(ctx, "home-image.tgz")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(home), nil
+}
+
+func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (string, *dagger.File, error) {
 	// TODO use mounted Secret for credentials
 	hostCredPath, err := h.EnvVariable("GOOGLE_APPLICATION_CREDENTIALS").Value(ctx)
 	if err != nil {
-		return nil, err
+		return "", nil, err
+	}
+	containerHome, err := userHome(ctx, c)
+	if err != nil {
+		return "", nil, err
 	}
 	if hostCredPath == "" {
 		hostHome, err := h.EnvVariable("HOME").Value(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("couldn't fetch Google Cloud credentials: %w", err)
+			return "", nil, fmt.Errorf("couldn't fetch Google Cloud credentials: %w", err)
 		}
 		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
 		credFile := filepath.Base(hostCredPath)
-		return h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
-		//return c.WithEnvVariable("HOME", "/app").WithMountedFile("/app/.config/gcloud/application_default_credentials.json",
+		c = c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", adcPath(containerHome))
+		return adcPath(containerHome), h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
+		//return c.WithEnvVariable("HOME", "/app").WithMountedFile(adcPath(containerHome),
 		//	h.Directory(filepath.Dir(hostCredPath)).File(credFile)), nil
 	}
 	credFile := filepath.Base(hostCredPath)
 	c = c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/root/.config/gcloud/"+credFile).WithEnvVariable("GOOGLE_CREDENTIALS", "/root/.config/gcloud/"+credFile)
-	return h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
+	return adcPath(containerHome), h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
 }
 
 type daggerSecrets struct {
@@ -85,11 +105,11 @@ func terragruntImage(ctx context.Context, c *dagger.Client) (*dagger.Container, 
 		From("hashicorp/terraform:1.3.9").
 		WithFile("/bin/terragrunt", tgruntBinary, dagger.ContainerWithFileOpts{Permissions: 0755}).
 		WithEntrypoint([]string{"/bin/terragrunt"})
-	googleCredFile, err := googleEnv(ctx, terragrunt, c.Host())
+	mountPath, googleCredFile, err := googleEnv(ctx, terragrunt, c.Host())
 	if err != nil {
 		return nil, err
 	}
-	terragrunt = terragrunt.WithMountedFile("/root/.config/gcloud/application_default_credentials.json", googleCredFile)
+	terragrunt = terragrunt.WithMountedFile(mountPath, googleCredFile)
 	return terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/dev").
 		WithSecretVariable("TF_VAR_do_token", s.DoToken), nil
@@ -107,11 +127,11 @@ func ansibleImage(ctx context.Context, c *dagger.Client) (*dagger.Container, err
 		WithExec([]string{"/app/.venv/bin/pip3", "install", "-r", "requirements.txt"}).
 		WithExec([]string{"/app/.venv/bin/ansible-galaxy", "install", "-r", "requirements.yml"}).
 		WithExec([]string{"mkdir", "/app/.ssh"})
-	googleCredFile, err := googleEnv(ctx, ansible, c.Host())
+	mountPath, googleCredFile, err := googleEnv(ctx, ansible, c.Host())
 	if err != nil {
 		return nil, err
 	}
-	ansible = ansible.WithMountedFile("/app/.config/gcloud/application_default_credentials.json", googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: "app:app"})
+	ansible = ansible.WithMountedFile(mountPath, googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: "app:app"})
 	return ansible, nil
 }
 
@@ -120,6 +140,7 @@ func main() {
 
 	ctx := context.Background()
 
+	// Preparing Dagger client (with Secrets, with Host code as functional options?)
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr))
 	if err != nil {
 		panic(err)
@@ -135,11 +156,19 @@ func main() {
 		panic(err)
 	}
 
+	// Building images
+	// Build of Tgrunt image
 	tgruntExec, err := terragruntImage(ctx, client)
 	if err != nil {
 		panic(err)
 	}
+	// build of Ansible image
+	ansibleExec, _ := ansibleImage(ctx, client)
+	if err != nil {
+		panic(err)
+	}
 
+	// Action dispatcher / deploy
 	switch action {
 	case "plan":
 		plan, err := tgruntExec.WithExec([]string{"run-all", "plan", "--terragrunt-non-interactive"}).Stdout(ctx)
@@ -153,7 +182,6 @@ func main() {
 			panic(err)
 		}
 		fmt.Println(apply)
-		ansibleExec, _ := ansibleImage(ctx, client)
 		ansibleExec = ansibleExec.WithEnvVariable("ANSIBLE_HOST_KEY_CHECKING", "False").
 			WithSecretVariable("TF_VAR_do_token", s.DoToken).
 			WithMountedSecret("/app/.ssh/id_ed25519", s.SSHPrivateKey, dagger.ContainerWithMountedSecretOpts{Owner: "app:app"}).
