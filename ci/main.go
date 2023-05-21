@@ -27,7 +27,6 @@ func userHome(ctx context.Context, c *dagger.Container) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c.Export(ctx, "home-image.tgz")
 	if err != nil {
 		return "", err
 	}
@@ -85,56 +84,6 @@ func sopsDecrypt(cryptText string, c *dagger.Client) (daggerSecrets, error) {
 	return ds, nil
 }
 
-func terragruntImage(ctx context.Context, c *dagger.Client) (*dagger.Container, error) {
-	tgruntRelease := fmt.Sprintf("https://github.com/gruntwork-io/terragrunt/releases/download/%s/terragrunt_linux_amd64", tgruntVersion)
-
-	tgruntBinary := c.HTTP(tgruntRelease)
-
-	code := c.Host().Directory(".")
-	cryptFile, err := code.File("secrets.yaml").Contents(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := sopsDecrypt(cryptFile, c)
-	if err != nil {
-		return nil, err
-	}
-
-	terragrunt := c.Container().
-		From("hashicorp/terraform:1.3.9").
-		WithFile("/bin/terragrunt", tgruntBinary, dagger.ContainerWithFileOpts{Permissions: 0755}).
-		WithEntrypoint([]string{"/bin/terragrunt"})
-	mountPath, googleCredFile, err := googleEnv(ctx, terragrunt, c.Host())
-	if err != nil {
-		return nil, err
-	}
-	terragrunt = terragrunt.WithMountedFile(mountPath, googleCredFile)
-	return terragrunt.WithMountedDirectory("/infra", code).
-		WithWorkdir("/infra/dev").
-		WithSecretVariable("TF_VAR_do_token", s.DoToken), nil
-
-}
-
-func ansibleImage(ctx context.Context, c *dagger.Client) (*dagger.Container, error) {
-	sopsRelease := "https://github.com/mozilla/sops/releases/download/v3.7.3/sops-v3.7.3.linux"
-	sopsBin := c.HTTP(sopsRelease)
-
-	code := c.Host().Directory(".")
-	ansible := c.Container().From("python:3.10").WithExec([]string{"/usr/sbin/useradd", "-d", "/app", "-m", "app"}).WithUser("app").WithExec([]string{"python3", "-m", "venv", "/app/.venv", "--upgrade-deps"})
-	ansible = ansible.WithFile("/bin/sops", sopsBin, dagger.ContainerWithFileOpts{Permissions: 0o755})
-	ansible = ansible.WithMountedDirectory("/mnt/app/code", code).WithWorkdir("/mnt/app/code/ansible").
-		WithExec([]string{"/app/.venv/bin/pip3", "install", "-r", "requirements.txt"}).
-		WithExec([]string{"/app/.venv/bin/ansible-galaxy", "install", "-r", "requirements.yml"}).
-		WithExec([]string{"mkdir", "/app/.ssh"})
-	mountPath, googleCredFile, err := googleEnv(ctx, ansible, c.Host())
-	if err != nil {
-		return nil, err
-	}
-	ansible = ansible.WithMountedFile(mountPath, googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: "app:app"})
-	return ansible, nil
-}
-
 func main() {
 	action := os.Args[1]
 
@@ -163,7 +112,7 @@ func main() {
 		panic(err)
 	}
 	// build of Ansible image
-	ansibleExec, _ := ansibleImage(ctx, client)
+	ansibleExec, err := AnsibleImage(ctx, client)
 	if err != nil {
 		panic(err)
 	}
