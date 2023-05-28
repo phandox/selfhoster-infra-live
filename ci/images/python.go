@@ -14,6 +14,10 @@ type PythonEnv struct {
 	binPath   string
 }
 
+func (p PythonEnv) Home() string {
+	return p.home
+}
+
 func (p PythonEnv) User() string {
 	return p.usr
 }
@@ -54,8 +58,7 @@ func NewPythonEnv(c *dagger.Client, opts ...func(*PythonEnv)) *PythonEnv {
 	env.mountPath = filepath.Join(env.home, "mnt")
 	env.C = env.C.WithExec([]string{"/usr/sbin/useradd", "-d", env.home, "-m", env.usr}).
 		WithUser(env.usr).
-		WithExec([]string{"python3", "-m", "venv", venv, "--upgrade-deps"}).
-		WithExec([]string{"mkdir", filepath.Join(env.home, ".ssh")}) // TODO decouple this to Ansible image
+		WithExec([]string{"python3", "-m", "venv", venv, "--upgrade-deps"})
 
 	for _, opt := range opts {
 		opt(&env)

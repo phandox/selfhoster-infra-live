@@ -5,32 +5,29 @@ import (
 	"context"
 	"dagger.io/dagger"
 	"fmt"
-	"path/filepath"
 )
 
-type AnsibleEnv struct {
-	p *images.PythonEnv
-}
-
-func AnsibleImage(ctx context.Context, c *dagger.Client) (*dagger.Container, error) {
+func AnsibleImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*images.Ansible, error) {
 	sopsRelease := "https://github.com/mozilla/sops/releases/download/v3.7.3/sops-v3.7.3.linux"
 	requirementsFile := c.Host().Directory(".").File("ansible/requirements.txt")
 	pythonImg := images.NewPythonEnv(c,
 		images.WithExternalBin(c, sopsRelease, "sops"),
 		images.WithPipInstall(requirementsFile))
-
-	container := pythonImg.C
-	// TODO method for Ansible Image
 	galaxyReq := c.Host().Directory(".").File("ansible/requirements.yml")
-	galaxyMount := filepath.Join(pythonImg.MountPath(), "requirements.yml")
-	container = container.WithMountedFile(galaxyMount, galaxyReq, dagger.ContainerWithMountedFileOpts{Owner: pythonImg.User()}).
-		WithExec([]string{filepath.Join(pythonImg.BinDir(), "ansible-galaxy"), "install", "-r", galaxyMount})
-	mountPath, googleCredFile, err := googleEnv(ctx, container, c.Host())
+	a, err := images.NewAnsible(pythonImg,
+		images.WithGalaxyInstall(galaxyReq),
+		images.WithSSH(s.SSHPrivateKey),
+		images.WithGCPAuth(ctx, c.Host()))
 	if err != nil {
 		return nil, err
 	}
-	container = container.WithMountedFile(mountPath, googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: pythonImg.User()})
-	return container, nil
+	a.C = a.C.WithSecretVariable("TF_VAR_do_token", s.DoToken)
+	//mountPath, googleCredFile, err := googleEnv(ctx, container, c.Host())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//container = container.WithMountedFile(mountPath, googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: a.User()})
+	return a, nil
 }
 
 func terragruntImage(ctx context.Context, c *dagger.Client) (*dagger.Container, error) {
@@ -61,5 +58,4 @@ func terragruntImage(ctx context.Context, c *dagger.Client) (*dagger.Container, 
 	return terragrunt.WithMountedDirectory("/infra", code).
 		WithWorkdir("/infra/dev").
 		WithSecretVariable("TF_VAR_do_token", s.DoToken), nil
-
 }

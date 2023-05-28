@@ -112,7 +112,7 @@ func main() {
 		panic(err)
 	}
 	// build of Ansible image
-	ansibleExec, err := AnsibleImage(ctx, client)
+	ansibleExec, err := AnsibleImage(ctx, client, s)
 	if err != nil {
 		panic(err)
 	}
@@ -126,20 +126,12 @@ func main() {
 		}
 		fmt.Println(plan)
 	case "apply":
-		apply, err := tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(apply)
-		ansibleExec = ansibleExec.WithEnvVariable("ANSIBLE_HOST_KEY_CHECKING", "False").
-			WithSecretVariable("TF_VAR_do_token", s.DoToken).
-			WithMountedSecret("/app/.ssh/id_ed25519", s.SSHPrivateKey, dagger.ContainerWithMountedSecretOpts{Owner: "app:app"}).
-			WithEnvVariable("ANSIBLE_PRIVATE_KEY_FILE", "/app/.ssh/id_ed25519")
-		_, err = ansibleExec.Export(ctx, "/tmp/ansible-debug.tgz")
-		if err != nil {
-			panic(err)
-		}
-		ansibleExec.WithExec([]string{"/app/.venv/bin/ansible-playbook", "-i", "../dev/postgres-vm/do_hosts.yml", "--extra-vars", "exec_env=dev", "db.yml"}).Stdout(ctx)
+		// Run Terragrunt phase
+		tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
+		ansibleExec.C = ansibleExec.C.WithMountedDirectory(filepath.Join(ansibleExec.MountPath(), "code"), code, dagger.ContainerWithMountedDirectoryOpts{Owner: ansibleExec.User()}).
+			WithWorkdir(filepath.Join(ansibleExec.MountPath(), "code", "ansible"))
+		// Run Ansible phase
+		ansibleExec.C.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", "../dev/postgres-vm/do_hosts.yml", "--extra-vars", "exec_env=dev", "db.yml"}).Stdout(ctx)
 	case "destroy":
 		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
 		if err != nil {
