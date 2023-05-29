@@ -7,61 +7,39 @@ import (
 )
 
 type PythonEnv struct {
-	C         *dagger.Container
-	usr       string
-	home      string
-	mountPath string
-	binPath   string
+	*ContainerImage
+	venv string
 }
 
-func (p PythonEnv) Home() string {
-	return p.home
-}
-
-func (p PythonEnv) User() string {
-	return p.usr
-}
-
-func (p PythonEnv) MountPath() string {
-	return p.mountPath
-}
+type PythonOption func(*PythonEnv) error
 
 // BinDir returns directory with installed Python binaries
 func (p PythonEnv) BinDir() string {
-	return p.binPath
-}
-
-// WithExternalBin downloads file from URL and saves in PATH under name
-func WithExternalBin(dc *dagger.Client, url string, name string) func(*PythonEnv) {
-	bin := dc.HTTP(url)
-	return func(env *PythonEnv) {
-		env.C = env.C.WithFile(fmt.Sprintf("/bin/%s", name), bin, dagger.ContainerWithFileOpts{Permissions: 0o755})
-	}
+	return filepath.Join(p.venv, "bin")
 }
 
 // WithPipInstall install dependencies in requirements.txt file to env
-func WithPipInstall(requirementsTXT *dagger.File) func(*PythonEnv) {
-	return func(env *PythonEnv) {
+func WithPipInstall(requirementsTXT *dagger.File) PythonOption {
+	return func(env *PythonEnv) error {
 		requirementsMount := filepath.Join(env.home, "mnt", "requirements.txt")
-		env.C = env.C.WithMountedFile(requirementsMount, requirementsTXT, dagger.ContainerWithMountedFileOpts{Owner: env.usr}).
-			WithExec([]string{filepath.Join(env.binPath, "pip"), "install", "-r", requirementsMount})
+		env.Container = env.Container.WithMountedFile(requirementsMount, requirementsTXT, dagger.ContainerWithMountedFileOpts{Owner: env.usr}).
+			WithExec([]string{filepath.Join(env.BinDir(), "pip"), "install", "-r", requirementsMount})
+		return nil
 	}
 }
 
-func NewPythonEnv(c *dagger.Client, opts ...func(*PythonEnv)) *PythonEnv {
-	env := PythonEnv{C: c.Container().From("python:3.10")}
-	// defaults
-	env.usr = "app"
-	env.home = "/home/app"
-	venv := filepath.Join(env.home, "venv")
-	env.binPath = filepath.Join(venv, "bin")
-	env.mountPath = filepath.Join(env.home, "mnt")
-	env.C = env.C.WithExec([]string{"/usr/sbin/useradd", "-d", env.home, "-m", env.usr}).
-		WithUser(env.usr).
-		WithExec([]string{"python3", "-m", "venv", venv, "--upgrade-deps"})
+func NewPythonEnv(c *dagger.Client, opts ...PythonOption) (*PythonEnv, error) {
+	base, err := NewContainerImage(c.Container().From("python:3.10"))
+	if err != nil {
+		return nil, err
+	}
+	p := PythonEnv{base, filepath.Join(base.Home(), "venv")}
+	p.Container = p.Container.WithExec([]string{"python3", "-m", "venv", p.venv, "--upgrade-deps"})
 
 	for _, opt := range opts {
-		opt(&env)
+		if err := opt(&p); err != nil {
+			return nil, fmt.Errorf("error applying Python option: %w", err)
+		}
 	}
-	return &env
+	return &p, nil
 }

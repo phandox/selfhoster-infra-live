@@ -128,10 +128,10 @@ func main() {
 	case "apply":
 		// Run Terragrunt phase
 		tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
-		ansibleExec.C = ansibleExec.C.WithMountedDirectory(filepath.Join(ansibleExec.MountPath(), "code"), code, dagger.ContainerWithMountedDirectoryOpts{Owner: ansibleExec.User()}).
+		ansibleExec.Container = ansibleExec.Container.WithMountedDirectory(filepath.Join(ansibleExec.MountPath(), "code"), code, dagger.ContainerWithMountedDirectoryOpts{Owner: ansibleExec.User()}).
 			WithWorkdir(filepath.Join(ansibleExec.MountPath(), "code", "ansible"))
 		// Run Ansible phase
-		ansibleExec.C.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", "../dev/postgres-vm/do_hosts.yml", "--extra-vars", "exec_env=dev", "db.yml"}).Stdout(ctx)
+		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", "../dev/postgres-vm/do_hosts.yml", "--extra-vars", "exec_env=dev", "db.yml"}).Stdout(ctx)
 	case "destroy":
 		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
 		if err != nil {

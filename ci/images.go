@@ -10,24 +10,37 @@ import (
 func AnsibleImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*images.Ansible, error) {
 	sopsRelease := "https://github.com/mozilla/sops/releases/download/v3.7.3/sops-v3.7.3.linux"
 	requirementsFile := c.Host().Directory(".").File("ansible/requirements.txt")
-	pythonImg := images.NewPythonEnv(c,
-		images.WithExternalBin(c, sopsRelease, "sops"),
-		images.WithPipInstall(requirementsFile))
-	galaxyReq := c.Host().Directory(".").File("ansible/requirements.yml")
-	a, err := images.NewAnsible(pythonImg,
-		images.WithGalaxyInstall(galaxyReq),
-		images.WithSSH(s.SSHPrivateKey),
-		images.WithGCPAuth(ctx, c.Host()))
+
+	pythonImg, err := images.NewPythonEnv(c, images.WithPipInstall(requirementsFile))
 	if err != nil {
 		return nil, err
 	}
-	a.C = a.C.WithSecretVariable("TF_VAR_do_token", s.DoToken)
-	//mountPath, googleCredFile, err := googleEnv(ctx, container, c.Host())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//container = container.WithMountedFile(mountPath, googleCredFile, dagger.ContainerWithMountedFileOpts{Owner: a.User()})
+	if err := images.WithExternalBin(c, sopsRelease, "sops")(pythonImg.ContainerImage); err != nil {
+		return nil, err
+	}
+	galaxyReq := c.Host().Directory(".").File("ansible/requirements.yml")
+	a, err := images.NewAnsible(pythonImg,
+		images.WithGalaxyInstall(galaxyReq),
+		images.WithSSH(s.SSHPrivateKey))
+	if err != nil {
+		return nil, err
+	}
+	if err := images.WithGCPAuthGen(ctx, c.Host())(a.ContainerImage); err != nil {
+		return nil, err
+	}
+	a.Container = a.Container.WithSecretVariable("TF_VAR_do_token", s.DoToken)
 	return a, nil
+}
+
+func genTerragrunt(ctx context.Context, c *dagger.Client) (*images.Terragrunt, error) {
+	tg, err := images.NewTerragrunt(c, images.WithTerragrunt(c, tgruntVersion))
+	if err != nil {
+		return nil, err
+	}
+	if err = images.WithGCPAuthGen(ctx, c.Host())(tg.ContainerImage); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func terragruntImage(ctx context.Context, c *dagger.Client) (*dagger.Container, error) {
