@@ -8,57 +8,9 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 const tgruntVersion = "v0.45.2"
-
-func adcPath(homeDir string) string {
-	return filepath.Join(homeDir, ".config/gcloud/application_default_credentials.json")
-}
-
-func userHome(ctx context.Context, c *dagger.Container) (string, error) {
-	usr, err := c.WithEntrypoint([]string{"/bin/sh", "-c"}).WithExec([]string{"id -un"}).Stdout(ctx)
-	if err != nil {
-		return "", err
-	}
-	usr = strings.TrimSpace(usr)
-	home, err := c.WithEntrypoint([]string{"/bin/sh", "-c"}).WithExec([]string{fmt.Sprintf(`getent passwd %s | cut -d':' -f 6`, usr)}).Stdout(ctx)
-	if err != nil {
-		return "", err
-	}
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(home), nil
-}
-
-func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (string, *dagger.File, error) {
-	// TODO use mounted Secret for credentials
-	hostCredPath, err := h.EnvVariable("GOOGLE_APPLICATION_CREDENTIALS").Value(ctx)
-	if err != nil {
-		return "", nil, err
-	}
-	containerHome, err := userHome(ctx, c)
-	if err != nil {
-		return "", nil, err
-	}
-	if hostCredPath == "" {
-		hostHome, err := h.EnvVariable("HOME").Value(ctx)
-		if err != nil {
-			return "", nil, fmt.Errorf("couldn't fetch Google Cloud credentials: %w", err)
-		}
-		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
-		credFile := filepath.Base(hostCredPath)
-		c = c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", adcPath(containerHome))
-		return adcPath(containerHome), h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
-		//return c.WithEnvVariable("HOME", "/app").WithMountedFile(adcPath(containerHome),
-		//	h.Directory(filepath.Dir(hostCredPath)).File(credFile)), nil
-	}
-	credFile := filepath.Base(hostCredPath)
-	c = c.WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/root/.config/gcloud/"+credFile).WithEnvVariable("GOOGLE_CREDENTIALS", "/root/.config/gcloud/"+credFile)
-	return adcPath(containerHome), h.Directory(filepath.Dir(hostCredPath)).File(credFile), nil
-}
 
 type daggerSecrets struct {
 	DoToken       *dagger.Secret

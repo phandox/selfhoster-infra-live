@@ -7,12 +7,6 @@ import (
 	"path/filepath"
 )
 
-type container interface {
-	Home() string
-	User() string
-	MountPath() string
-}
-
 type ContainerImage struct {
 	*dagger.Container
 	usr       string
