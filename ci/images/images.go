@@ -42,6 +42,26 @@ func WithExternalBin(dc *dagger.Client, url string, name string) ContainerOption
 	}
 }
 
+func WithUnprivilegedUser(ctx context.Context, usrAdder func(*dagger.Container) *dagger.Container) ContainerOption {
+	return func(ci *ContainerImage) error {
+		origEntrypoint, err := ci.Entrypoint(ctx)
+		if err != nil {
+			return err
+		}
+		origPath, err := ci.EnvVariable(ctx, "PATH")
+		if err != nil {
+			return err
+		}
+		ci.Container = ci.Container.WithEntrypoint([]string{"/bin/sh"}).
+			With(usrAdder).
+			WithUser(ci.User()).
+			WithExec([]string{"-c", fmt.Sprintf("mkdir -p %s %s", ci.binPath, ci.mountPath)}).
+			WithEnvVariable("PATH", fmt.Sprintf("%s:%s", origPath, ci.binPath)).
+			WithEntrypoint(origEntrypoint)
+		return nil
+	}
+}
+
 func WithGCPAuthGen(ctx context.Context, h *dagger.Host) ContainerOption {
 	return func(c *ContainerImage) error {
 		const adcPath = ".config/gcloud/application_default_credentials.json"
@@ -81,8 +101,6 @@ func NewContainerImage(c *dagger.Container, opts ...ContainerOption) (*Container
 	img := &ContainerImage{Container: c, usr: "app", home: "/home/app"}
 	img.binPath = filepath.Join(img.Home(), "bin")
 	img.mountPath = filepath.Join(img.Home(), "mnt")
-	img.Container = img.Container.WithExec([]string{"/usr/sbin/useradd", "-d", img.Home(), "-m", img.User()}).
-		WithUser(img.User())
 
 	for _, opt := range opts {
 		if err := opt(img); err != nil {

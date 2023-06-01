@@ -107,7 +107,7 @@ func main() {
 
 	// Building images
 	// Build of Tgrunt image
-	tgruntExec, err := terragruntImage(ctx, client)
+	tgruntExec, err := TerragruntImage(ctx, client, s, "dev")
 	if err != nil {
 		panic(err)
 	}

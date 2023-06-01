@@ -1,6 +1,7 @@
 package images
 
 import (
+	"context"
 	"dagger.io/dagger"
 	"fmt"
 	"path/filepath"
@@ -28,11 +29,18 @@ func WithPipInstall(requirementsTXT *dagger.File) PythonOption {
 	}
 }
 
-func NewPythonEnv(c *dagger.Client, opts ...PythonOption) (*PythonEnv, error) {
+func NewPythonEnv(ctx context.Context, c *dagger.Client, opts ...PythonOption) (*PythonEnv, error) {
 	base, err := NewContainerImage(c.Container().From("python:3.10"))
 	if err != nil {
 		return nil, err
 	}
+	err = WithUnprivilegedUser(ctx, func(d *dagger.Container) *dagger.Container {
+		return d.WithExec([]string{"-c", fmt.Sprintf("/usr/sbin/useradd -d %s -m %s", base.Home(), base.User())})
+	})(base)
+	if err != nil {
+		return nil, err
+	}
+
 	p := PythonEnv{base, filepath.Join(base.Home(), "venv")}
 	p.Container = p.Container.WithExec([]string{"python3", "-m", "venv", p.venv, "--upgrade-deps"})
 
