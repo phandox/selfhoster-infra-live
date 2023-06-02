@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ci/ci/images"
+	"ci/images"
 	"context"
 	"dagger.io/dagger"
 	"path/filepath"
@@ -16,10 +16,6 @@ func AnsibleImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*imag
 		return nil, err
 	}
 	if err := images.WithExternalBin(c, sopsRelease, "sops")(pythonImg.ContainerImage); err != nil {
-		return nil, err
-	}
-	_, err = pythonImg.Export(ctx, "/tmp/python-debug.tgz")
-	if err != nil {
 		return nil, err
 	}
 	galaxyReq := c.Host().Directory(".").File("ansible/requirements.yml")
