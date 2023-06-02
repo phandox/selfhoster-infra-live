@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version-file: "./ci/go.mod"
-          cache-dependencies-path: "./ci/go.sum"
+          cache-dependency-path: "./ci/go.sum"
       - name: Install dependencies
         run: go get .
         working-directory: "./ci"
