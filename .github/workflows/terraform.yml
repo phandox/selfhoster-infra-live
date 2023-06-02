@@ -22,8 +22,7 @@ jobs:
           access_token_lifetime: 600s
       - uses: actions/setup-go@v4
         with:
-          go-version-file: "go.mod"
-          working-directory: "./ci"
+          go-version-file: "./ci/go.mod"
       - name: Install dependencies
         run: go get .
         working-directory: "./ci"
