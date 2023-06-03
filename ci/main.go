@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"dagger.io/dagger"
+	"flag"
 	"fmt"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v3"
@@ -36,10 +37,48 @@ func sopsDecrypt(cryptText string, c *dagger.Client) (daggerSecrets, error) {
 	return ds, nil
 }
 
-func main() {
-	action := os.Args[1]
-	env := "prod"
+type ciArgs struct {
+	action string
+	env    string
+}
 
+func (cia ciArgs) validate() error {
+	if len(cia.env) == 0 {
+		return fmt.Errorf("-env flag must not be empty")
+	}
+	if len(cia.action) == 0 {
+		return fmt.Errorf("-action flag must not be empty")
+	}
+	if cia.env != "dev" && cia.env != "prod" {
+		return fmt.Errorf("invalid env: %q not in %q or %q", cia.env, "dev", "prod")
+	}
+	if cia.action != "plan" && cia.action != "apply" && cia.action != "destroy" {
+		return fmt.Errorf("invalid action: %q not in %q or %q or %q", cia.env, "plan", "apply", "destroy")
+	}
+	return nil
+}
+
+func cliFlags(args []string) (*ciArgs, error) {
+	fs := flag.NewFlagSet("dagger-ci", flag.ExitOnError)
+	cfg := ciArgs{}
+	fs.StringVar(&cfg.env, "env", "dev", "environment for executing pipeline")
+	fs.StringVar(&cfg.action, "action", "", "action for pipeline - plan / apply / destroy")
+	err := fs.Parse(args)
+	if err != nil {
+		return nil, err
+	}
+	err = cfg.validate()
+	if err != nil {
+		return nil, fmt.Errorf("error validating flags: %w", err)
+	}
+	return &cfg, nil
+}
+
+func main() {
+	cfg, err := cliFlags(os.Args[1:])
+	if err != nil {
+		panic(err)
+	}
 	ctx := context.Background()
 
 	// Preparing Dagger client (with Secrets, with Host code as functional options?)
@@ -60,7 +99,7 @@ func main() {
 
 	// Building images
 	// Build of Tgrunt image
-	tgruntExec, err := TerragruntImage(ctx, client, s, env)
+	tgruntExec, err := TerragruntImage(ctx, client, s, cfg.env)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +110,7 @@ func main() {
 	}
 
 	// Action dispatcher / deploy
-	switch action {
+	switch cfg.action {
 	case "plan":
 		plan, err := tgruntExec.WithExec([]string{"run-all", "plan", "--terragrunt-non-interactive"}).Stdout(ctx)
 		if err != nil {
@@ -84,7 +123,7 @@ func main() {
 		ansibleExec.Container = ansibleExec.Container.WithMountedDirectory(filepath.Join(ansibleExec.MountPath(), "code"), code, dagger.ContainerWithMountedDirectoryOpts{Owner: ansibleExec.User()}).
 			WithWorkdir(filepath.Join(ansibleExec.MountPath(), "code", "ansible"))
 		// Run Ansible phase
-		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", fmt.Sprintf("../%s/postgres-vm/do_hosts.yml", env), "--extra-vars", "exec_env=" + env, "db.yml"}).Stdout(ctx)
+		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", fmt.Sprintf("../%s/postgres-vm/do_hosts.yml", cfg.env), "--extra-vars", "exec_env=" + cfg.env, "db.yml"}).Stdout(ctx)
 	case "destroy":
 		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
 		if err != nil {
