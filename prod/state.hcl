@@ -21,9 +21,9 @@ locals {
 #}
 
 generate "backend" {
-  path = "backend.tf"
+  path      = "backend.tf"
   if_exists = "overwrite_terragrunt"
-  contents = <<EOF
+  contents  = <<EOF
 terraform {
   backend "gcs" {
     bucket  = "ln-gcp-sh-infra-prod-tfstates"

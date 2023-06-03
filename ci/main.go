@@ -12,82 +12,65 @@ import (
 
 const tgruntVersion = "v0.45.2"
 
-func googleEnv(ctx context.Context, c *dagger.Container, h *dagger.Host) (*dagger.Container, error) {
-	hostCredPath, err := h.EnvVariable("GOOGLE_APPLICATION_CREDENTIALS").Value(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if hostCredPath == "" {
-		hostHome, err := h.EnvVariable("HOME").Value(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't fetch Google Cloud credentials: %w", err)
-		}
-		hostCredPath = filepath.Join(hostHome, ".config/gcloud/application_default_credentials.json")
-		credFile := filepath.Base(hostCredPath)
-		return c.WithEnvVariable("HOME", "/app").WithMountedFile("/app/.config/gcloud/application_default_credentials.json",
-			h.Directory(filepath.Dir(hostCredPath)).File(credFile)), nil
-	}
-	credFile := filepath.Base(hostCredPath)
-	return c.WithMountedFile("/"+credFile, h.Directory(filepath.Dir(hostCredPath)).File(credFile)).
-		WithEnvVariable("GOOGLE_APPLICATION_CREDENTIALS", "/"+credFile).
-		WithEnvVariable("GOOGLE_CREDENTIALS", "/"+credFile), nil
+type daggerSecrets struct {
+	DoToken       *dagger.Secret
+	SSHPrivateKey *dagger.Secret
 }
 
-type secrets struct {
-	DoToken string `yaml:"do_token"`
-}
-
-func sopsDecrypt(cryptText string) (secrets, error) {
+func sopsDecrypt(cryptText string, c *dagger.Client) (daggerSecrets, error) {
+	type secrets struct {
+		DoToken       string `yaml:"do_token"`
+		SSHPrivateKey string `yaml:"ssh_private_key"`
+	}
 	clearText, err := decrypt.Data([]byte(cryptText), "yaml")
 	if err != nil {
-		return secrets{}, fmt.Errorf("problem decrypting SOPS data: %w", err)
+		return daggerSecrets{}, fmt.Errorf("problem decrypting SOPS data: %w", err)
 	}
 	s := secrets{}
 	if err = yaml.Unmarshal(clearText, &s); err != nil {
-		return secrets{}, fmt.Errorf("problem unmarshalling data: %w", err)
+		return daggerSecrets{}, fmt.Errorf("problem unmarshalling data: %w", err)
 	}
-	return s, nil
+	var ds daggerSecrets
+	ds.DoToken = c.SetSecret("do_token", s.DoToken)
+	ds.SSHPrivateKey = c.SetSecret("private_key", s.SSHPrivateKey)
+	return ds, nil
 }
 
 func main() {
 	action := os.Args[1]
+	env := "prod"
 
 	ctx := context.Background()
 
+	// Preparing Dagger client (with Secrets, with Host code as functional options?)
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr))
 	if err != nil {
 		panic(err)
 	}
 	defer client.Close()
-
-	tgruntRelease := fmt.Sprintf("https://github.com/gruntwork-io/terragrunt/releases/download/%s/terragrunt_linux_amd64", tgruntVersion)
-
-	tgruntBinary := client.HTTP(tgruntRelease)
-
 	code := client.Host().Directory(".")
 	cryptFile, err := code.File("secrets.yaml").Contents(ctx)
 	if err != nil {
 		panic(err)
 	}
-
-	s, err := sopsDecrypt(cryptFile)
+	s, err := sopsDecrypt(cryptFile, client)
 	if err != nil {
 		panic(err)
 	}
 
-	terragrunt := client.Container().
-		From("hashicorp/terraform:1.3.9").
-		WithFile("/bin/terragrunt", tgruntBinary, dagger.ContainerWithFileOpts{Permissions: 0755}).
-		WithEntrypoint([]string{"/bin/terragrunt"})
-	terragrunt, err = googleEnv(ctx, terragrunt, client.Host())
+	// Building images
+	// Build of Tgrunt image
+	tgruntExec, err := TerragruntImage(ctx, client, s, env)
+	if err != nil {
+		panic(err)
+	}
+	// build of Ansible image
+	ansibleExec, err := AnsibleImage(ctx, client, s)
 	if err != nil {
 		panic(err)
 	}
 
-	tgruntExec := terragrunt.WithMountedDirectory("/infra", code).
-		WithWorkdir("/infra/prod").
-		WithEnvVariable("TF_VAR_do_token", s.DoToken)
-
+	// Action dispatcher / deploy
 	switch action {
 	case "plan":
 		plan, err := tgruntExec.WithExec([]string{"run-all", "plan", "--terragrunt-non-interactive"}).Stdout(ctx)
@@ -96,11 +79,12 @@ func main() {
 		}
 		fmt.Println(plan)
 	case "apply":
-		apply, err := tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(apply)
+		// Run Terragrunt phase
+		tgruntExec.WithExec([]string{"run-all", "apply", "--terragrunt-non-interactive"}).Stdout(ctx)
+		ansibleExec.Container = ansibleExec.Container.WithMountedDirectory(filepath.Join(ansibleExec.MountPath(), "code"), code, dagger.ContainerWithMountedDirectoryOpts{Owner: ansibleExec.User()}).
+			WithWorkdir(filepath.Join(ansibleExec.MountPath(), "code", "ansible"))
+		// Run Ansible phase
+		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", fmt.Sprintf("../%s/postgres-vm/do_hosts.yml", env), "--extra-vars", "exec_env=" + env, "db.yml"}).Stdout(ctx)
 	case "destroy":
 		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
 		if err != nil {

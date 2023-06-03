@@ -3,7 +3,7 @@ module ci
 go 1.20
 
 require (
-	dagger.io/dagger v0.6.0
+	dagger.io/dagger v0.6.2
 	go.mozilla.org/sops/v3 v3.7.3
 )
 
