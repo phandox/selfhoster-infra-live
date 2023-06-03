@@ -6,6 +6,10 @@ on:
         description: 'Action to take when invoking Terragrunt'
         required: true
         default: 'apply'
+      env:
+        description: 'environment for pipeline'
+        required: false
+        default: 'prod'
 jobs:
   terragrunt-plan:
     permissions:
@@ -31,4 +35,4 @@ jobs:
         run: go build -o dagger-ci
         working-directory: "./ci"
       - name: Run CI job
-        run: ./ci/dagger-ci "${{ github.event.inputs.terragruntAction }}"
+        run: ./ci/dagger-ci -env "${{ github.event.inputs.env }}" -action "${{ github.event.inputs.terragruntAction }}"
