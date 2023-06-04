@@ -4,6 +4,7 @@ import (
 	"ci/images"
 	"context"
 	"dagger.io/dagger"
+	"fmt"
 	"path/filepath"
 )
 
@@ -45,4 +46,16 @@ func TerragruntImage(ctx context.Context, c *dagger.Client, s daggerSecrets, env
 		WithMountedDirectory(filepath.Join(tg.MountPath(), "infra"), tgCode, dagger.ContainerWithMountedDirectoryOpts{Owner: tg.User()}).
 		WithWorkdir(filepath.Join(tg.MountPath(), "infra", env)).WithSecretVariable("TF_VAR_do_token", s.DoToken)
 	return tg, nil
+}
+
+func HelmImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*images.Helm, error) {
+	h, err := images.NewHelm(ctx, c, images.WithK8SCluster(c, "doks-fra1-001", s.DoToken))
+	if err = images.WithGCPAuthGen(ctx, c.Host())(h.ContainerImage); err != nil {
+		return nil, fmt.Errorf("helm: error with GCP auth: %w", err)
+	}
+	charts := c.Host().Directory("charts")
+	h.Container = h.Container.
+		WithMountedDirectory(filepath.Join(h.MountPath(), "charts"), charts, dagger.ContainerWithMountedDirectoryOpts{Owner: h.User()}).
+		WithWorkdir(filepath.Join(h.MountPath(), "charts"))
+	return h, nil
 }

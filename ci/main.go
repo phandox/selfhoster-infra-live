@@ -52,7 +52,7 @@ func (cia ciArgs) validate() error {
 	if cia.env != "dev" && cia.env != "prod" {
 		return fmt.Errorf("invalid env: %q not in %q or %q", cia.env, "dev", "prod")
 	}
-	if cia.action != "plan" && cia.action != "apply" && cia.action != "destroy" {
+	if cia.action != "plan" && cia.action != "apply" && cia.action != "destroy" && cia.action != "helm-platform" {
 		return fmt.Errorf("invalid action: %q not in %q or %q or %q", cia.env, "plan", "apply", "destroy")
 	}
 	return nil
@@ -108,6 +108,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	helmExec, err := HelmImage(ctx, client, s)
+	if err != nil {
+		panic(err)
+	}
 
 	// Action dispatcher / deploy
 	switch cfg.action {
@@ -130,6 +134,12 @@ func main() {
 			panic(err)
 		}
 		fmt.Println(destroy)
+	case "helm-platform":
+		helm, err := helmExec.WithExec([]string{"list"}).Stdout(ctx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(helm)
 	default:
 		panic("Unknown action. 'plan', 'apply' and 'destroy' are supported")
 	}
