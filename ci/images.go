@@ -49,7 +49,12 @@ func TerragruntImage(ctx context.Context, c *dagger.Client, s daggerSecrets, env
 }
 
 func HelmImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*images.Helm, error) {
-	h, err := images.NewHelm(ctx, c, images.WithK8SCluster(c, "doks-fra1-001", s.DoToken))
+	h, err := images.NewHelm(ctx, c,
+		images.WithK8SCluster(c, "doks-fra1-001", s.DoToken),
+		images.WithRepository(
+			images.HelmRepo{Name: "ingress-nginx", Url: "https://kubernetes.github.io/ingress-nginx"},
+			images.HelmRepo{Name: "external-dns", Url: "https://kubernetes-sigs.github.io/external-dns/"},
+		))
 	if err = images.WithGCPAuthGen(ctx, c.Host())(h.ContainerImage); err != nil {
 		return nil, fmt.Errorf("helm: error with GCP auth: %w", err)
 	}

@@ -11,15 +11,35 @@ type Helm struct {
 	*ContainerImage
 }
 
+type HelmRepo struct {
+	Name string
+	Url  string
+}
+
+func WithRepository(repositories ...HelmRepo) HelmOption {
+	return func(h *Helm) error {
+		for _, r := range repositories {
+			h.Container = h.Container.WithExec([]string{"helm", "repo", "add", r.Name, r.Url})
+		}
+		h.Container = h.Container.WithExec([]string{"helm", "repo", "update"})
+		return nil
+	}
+}
+
 func WithK8SCluster(dc *dagger.Client, name string, doToken *dagger.Secret) HelmOption {
 	return func(h *Helm) error {
 		doctl := dc.Container().From("digitalocean/doctl:1-latest").File("/app/doctl")
 		kubectl := dc.Container().From("bitnami/kubectl:1.27").File("/opt/bitnami/kubectl/bin/kubectl")
 		h.Container = h.Container.
 			WithFile(filepath.Join(h.binPath, "kubectl"), kubectl, dagger.ContainerWithFileOpts{Owner: h.User(), Permissions: 0o755}).
-			WithFile(filepath.Join(h.binPath, "doctl"), doctl, dagger.ContainerWithFileOpts{Owner: h.User(), Permissions: 0o755})
+			WithFile(filepath.Join(h.binPath, "doctl"), doctl, dagger.ContainerWithFileOpts{Owner: h.User(), Permissions: 0o755}).
+			WithFile(filepath.Join(h.Home(), ".kube", "doctl"), doctl, dagger.ContainerWithFileOpts{Owner: h.User(), Permissions: 0o755})
+		cred := dc.Container().
+			From("digitalocean/doctl:1-latest").
+			WithSecretVariable("DIGITALOCEAN_ACCESS_TOKEN", doToken).
+			WithExec([]string{"kubernetes", "cluster", "kubeconfig", "save", name})
 		h.Container = h.Container.WithSecretVariable("DIGITALOCEAN_ACCESS_TOKEN", doToken).
-			WithExec([]string{"doctl", "kubernetes", "cluster", "kubeconfig", "save", name})
+			WithMountedFile(filepath.Join(h.Home(), ".kube", "config"), cred.File("/root/.kube/config"), dagger.ContainerWithMountedFileOpts{Owner: h.User()})
 		return nil
 	}
 }

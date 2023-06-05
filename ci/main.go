@@ -129,13 +129,22 @@ func main() {
 		// Run Ansible phase
 		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", fmt.Sprintf("../%s/postgres-vm/do_hosts.yml", cfg.env), "--extra-vars", "exec_env=" + cfg.env, "db.yml"}).Stdout(ctx)
 	case "destroy":
+		helmRemove, err := helmExec.
+			WithExec([]string{"uninstall", "-n", "ingress-nginx", "ingress-nginx", "--wait"}).
+			WithExec([]string{"uninstall", "-n", "external-dns", "external-dns", "--wait"}).Stdout(ctx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(helmRemove)
 		destroy, err := tgruntExec.WithExec([]string{"run-all", "destroy", "--terragrunt-non-interactive", "--terragrunt-exclude-dir", "volumes/"}).Stdout(ctx)
 		if err != nil {
 			panic(err)
 		}
 		fmt.Println(destroy)
 	case "helm-platform":
-		helm, err := helmExec.WithExec([]string{"list"}).Stdout(ctx)
+		helm, err := helmExec.
+			WithExec([]string{"upgrade", "--install", "ingress-nginx", "ingress-nginx/ingress-nginx", "--create-namespace", "-n", "ingress-nginx", "--version", "4.5.2", "-f", "ingress-nginx/values.yaml"}).
+			WithExec([]string{"secrets", "upgrade", "--install", "external-dns", "external-dns/external-dns", "--create-namespace", "-n", "external-dns", "--version", "1.12.1", "-f", "external-dns/values.yaml", "-f", "external-dns/secrets.yaml"}).Stdout(ctx)
 		if err != nil {
 			panic(err)
 		}
