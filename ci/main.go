@@ -129,6 +129,7 @@ func main() {
 		// Run Ansible phase
 		ansibleExec.Container.WithExec([]string{filepath.Join(ansibleExec.BinDir(), "ansible-playbook"), "-i", fmt.Sprintf("../%s/postgres-vm/do_hosts.yml", cfg.env), "--extra-vars", "exec_env=" + cfg.env, "db.yml"}).Stdout(ctx)
 	case "destroy":
+		// TODO this prints only last stdout - not really showing relevant data when cluster is recreated.
 		helmRemove, err := helmExec.
 			WithExec([]string{"uninstall", "-n", "ingress-nginx", "ingress-nginx", "--wait"}).
 			WithExec([]string{"uninstall", "-n", "external-dns", "external-dns", "--wait"}).Stdout(ctx)

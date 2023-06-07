@@ -5,6 +5,7 @@ import (
 	"dagger.io/dagger"
 	"fmt"
 	"path/filepath"
+	"time"
 )
 
 type Helm struct {
@@ -37,6 +38,7 @@ func WithK8SCluster(dc *dagger.Client, name string, doToken *dagger.Secret) Helm
 		cred := dc.Container().
 			From("digitalocean/doctl:1-latest").
 			WithSecretVariable("DIGITALOCEAN_ACCESS_TOKEN", doToken).
+			WithEnvVariable("BUST", time.Now().String()).
 			WithExec([]string{"kubernetes", "cluster", "kubeconfig", "save", name})
 		h.Container = h.Container.WithSecretVariable("DIGITALOCEAN_ACCESS_TOKEN", doToken).
 			WithMountedFile(filepath.Join(h.Home(), ".kube", "config"), cred.File("/root/.kube/config"), dagger.ContainerWithMountedFileOpts{Owner: h.User()})
