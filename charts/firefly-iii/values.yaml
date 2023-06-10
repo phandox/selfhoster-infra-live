@@ -111,6 +111,7 @@ ingress:
   className: nginx
   annotations:
     nginx.ingress.kubernetes.io/whitelist-source-range: 77.87.240.0/21
+    external-dns.alpha.kubernetes.io/ttl: "60"
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
