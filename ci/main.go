@@ -108,7 +108,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	helmExec, err := HelmImage(ctx, client, s)
+	helmExec, err := HelmImage(ctx, client, s, fmt.Sprintf("doks-fra1-%s-001", cfg.env))
 	if err != nil {
 		panic(err)
 	}

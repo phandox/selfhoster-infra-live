@@ -48,9 +48,9 @@ func TerragruntImage(ctx context.Context, c *dagger.Client, s daggerSecrets, env
 	return tg, nil
 }
 
-func HelmImage(ctx context.Context, c *dagger.Client, s daggerSecrets) (*images.Helm, error) {
+func HelmImage(ctx context.Context, c *dagger.Client, s daggerSecrets, cluster string) (*images.Helm, error) {
 	h, err := images.NewHelm(ctx, c,
-		images.WithK8SCluster(c, "doks-fra1-001", s.DoToken),
+		images.WithK8SCluster(c, cluster, s.DoToken),
 		images.WithRepository(
 			images.HelmRepo{Name: "ingress-nginx", Url: "https://kubernetes.github.io/ingress-nginx"},
 			images.HelmRepo{Name: "external-dns", Url: "https://kubernetes-sigs.github.io/external-dns/"},
