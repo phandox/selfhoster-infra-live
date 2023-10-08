@@ -110,7 +110,7 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    nginx.ingress.kubernetes.io/whitelist-source-range: 77.87.240.0/21
+    nginx.ingress.kubernetes.io/whitelist-source-range: 185.63.99.111
     external-dns.alpha.kubernetes.io/ttl: "60"
 
 resources:
