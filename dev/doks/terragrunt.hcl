@@ -28,8 +28,9 @@ include "state" {
 inputs = merge(
   local.common_vars,
   {
-    cluster_name = "doks-fra1-001"
+    cluster_name = "doks-fra1-${local.common_vars.env}-001"
     vpc_uuid     = dependency.vpc.outputs.vpc.id
     size         = "s-2vcpu-2gb"
+    k8s_version_prefix = "1.26"
   }
 )
